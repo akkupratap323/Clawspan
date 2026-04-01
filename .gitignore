@@ -1,0 +1,89 @@
+# ── Secrets & local config ──────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+*.env
+!.env.example
+
+# User profile & runtime data (lives in $HOME anyway)
+.jarvis_profile.json
+.jarvis_memory.db
+.mempalace/
+.jarvis_palace/
+
+# ── Python ──────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+*.egg
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# Virtualenvs
+venv/
+venv_mempal/
+.venv/
+env/
+ENV/
+
+# ── Model weights & large binaries ──────────────────────────────────────
+*.gguf
+*.bin
+*.pt
+*.pth
+*.safetensors
+*.ckpt
+
+# Keep small wake-word ONNX files — they're required at runtime (~3 MB total)
+# !hey_jarvis.onnx
+# !melspectrogram.onnx
+# !embedding_model.onnx
+
+# ── Node (for hud/) ─────────────────────────────────────────────────────
+node_modules/
+hud/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp/
+.pnp.js
+
+# ── Media & stray artifacts ─────────────────────────────────────────────
+*.mp4
+*.mov
+*.avi
+*.mkv
+atmospheric_scene.txt
+poetic_fragments.txt
+
+# ── Tool caches ─────────────────────────────────────────────────────────
+.cache/
+.qwen/
+.claude/
+
+# ── OS & editor ─────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── Backups ─────────────────────────────────────────────────────────────
+*.bak
+*.bak_*
+*.backup
+*~
+
+# ── Logs ────────────────────────────────────────────────────────────────
+*.log
+logs/
