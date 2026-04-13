@@ -470,10 +470,11 @@ async def run_pipeline() -> None:
 
     stt = DeepgramSTTService(
         api_key=DEEPGRAM_API_KEY,
-        ttfs_p99_latency=0.5,
+        # nova-3: 1.2× faster, 30% more accurate, lower latency
+        ttfs_p99_latency=0.3,
         settings=DeepgramSTTSettings(
             language="en",
-            model="nova-2",
+            model="nova-3",
             smart_format=True,
             keywords=_DEEPGRAM_KEYWORDS,
         ),
