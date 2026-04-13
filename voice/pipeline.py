@@ -66,7 +66,53 @@ from voice.system_prompt import (
 
 _SENTENCE_END = re.compile(r"[.!?…]+\s*")
 
+# Tools whose results should never be spoken verbatim — always route through
+# an LLM summariser even when short, and announce a progress line before they
+# start so the user knows something is cooking.
+_HEAVY_TOOLS: frozenset[str] = frozenset({
+    "deep_research",
+    "research_company",
+    "market_research",
+    "meeting_prep",
+    "agentic_research",
+    "crawl_to_rag",
+    "writer_create",
+    "writer_export",
+    "repo_insights",
+})
+
+# Spoken progress ack for each heavy tool — keeps the conversation alive
+# while the background thread works.
+_HEAVY_PROGRESS_ACK: dict[str, str] = {
+    "deep_research": "Digging into it now, boss.",
+    "research_company": "Pulling the company profile together.",
+    "market_research": "Scanning the market, one moment.",
+    "meeting_prep": "Prepping the brief now.",
+    "agentic_research": "Running the research agents, one moment.",
+    "crawl_to_rag": "Crawling and indexing, hang on.",
+    "writer_create": "Drafting the doc now.",
+    "writer_export": "Exporting the doc.",
+    "repo_insights": "Scanning the repo for risks.",
+}
+
+# Matches the "Created and saved to:\n<path>" envelope produced by
+# tools.voice_tools.writer — used to auto-open the new file in Finder.
+_WRITER_SAVED_PATH = re.compile(r"Created and saved to:\s*\n(.+)$", re.MULTILINE)
+
 _github_cache: GitHubAccountCache | None = None
+
+
+def _open_in_default_app(path: str) -> None:
+    """Open a file with its macOS default handler (fire-and-forget)."""
+    import subprocess
+    try:
+        subprocess.Popen(
+            ["open", path],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except Exception as e:
+        print(f"[AutoOpen] failed for {path}: {e}")
 
 
 def _build_system_prompt(profile: UserProfile, context: SessionContext) -> str:
@@ -108,42 +154,88 @@ class JarvisProcessor(FrameProcessor):
         if text and any(c.isalnum() for c in text):
             await self.push_frame(TextFrame(text=text), direction)
 
-    async def _run_tool_bg(self, tool_name: str, tool_args: dict, direction) -> None:
-        """Execute a tool off-thread, filter/summarise its output, then speak it."""
-        self._tool_calls_in_turn.append(tool_name)
-        print(f"[Tool] Running {tool_name}({tool_args}) in background...")
-        result = await asyncio.to_thread(tools.execute, tool_name, tool_args)
-        print(f"[Tool] {tool_name} done: {result[:100]}")
+    async def _summarise_for_voice(self, tool_name: str, raw: str) -> str:
+        """Compress a tool result into something speakable.
 
-        spoken = filter_voice(result)
-        if not spoken:
+        Heavy research tools get a 2–3 sentence crux (the "what I found" beat).
+        Everything else gets a one-sentence confirmation. Errors pass through
+        the existing voice filter untouched so boss still hears them.
+        """
+        if any(raw.startswith(p) for p in ("Error:", "Failed:", "That didn't work")):
+            return raw
+
+        is_heavy = tool_name in _HEAVY_TOOLS
+        if is_heavy:
+            system = (
+                "You are JARVIS. Turn this raw tool output into 2-3 natural spoken "
+                "sentences summarising the gist for your boss. No URLs, no markdown, "
+                "no headings — just the crux in plain spoken English."
+            )
+            max_tokens = 120
+        else:
+            system = (
+                "Convert this tool result into ONE short spoken sentence. "
+                "Max 15 words. No preamble. No IDs, URLs, or raw markdown."
+            )
+            max_tokens = 40
+
+        try:
+            resp = await self._client.chat.completions.create(
+                model="gpt-4.1",
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": raw[:2000]},
+                ],
+                max_tokens=max_tokens,
+                temperature=0.4,
+            )
+            return resp.choices[0].message.content.strip()
+        except Exception:
+            return raw[:120]
+
+    async def _run_tool(self, tool_name: str, tool_args: dict, direction) -> None:
+        """Run a single tool sequentially, announce progress, speak the summary.
+
+        For heavy tools we:
+          1. Speak a progress ack so the conversation stays alive.
+          2. Run the tool on a worker thread.
+          3. Summarise the output through the LLM (never speak raw).
+          4. If the tool produced a file path (writer_*), auto-open it and
+             say where it lives.
+        """
+        self._tool_calls_in_turn.append(tool_name)
+        is_heavy = tool_name in _HEAVY_TOOLS
+
+        ack = _HEAVY_PROGRESS_ACK.get(tool_name)
+        if is_heavy and ack:
+            print(f"[JARVIS/ack] {ack}")
+            await self._speak(ack, direction)
+
+        print(f"[Tool] Running {tool_name}({tool_args})...")
+        result = await asyncio.to_thread(tools.execute, tool_name, tool_args)
+        print(f"[Tool] {tool_name} done: {result[:120]}")
+
+        filtered = filter_voice(result)
+        if not filtered:
             return
 
-        if any(spoken.startswith(p) for p in ("Error:", "Failed:", "That didn't work")):
-            pass
-        elif len(spoken) > 200:
-            try:
-                resp = await self._client.chat.completions.create(
-                    model="gpt-4.1",
-                    messages=[
-                        {
-                            "role": "system",
-                            "content": (
-                                "Convert this tool result into ONE short spoken sentence. "
-                                "Max 15 words. No preamble. No IDs or raw numbers."
-                            ),
-                        },
-                        {"role": "user", "content": spoken[:500]},
-                    ],
-                    max_tokens=40,
-                    temperature=0.4,
-                )
-                spoken = resp.choices[0].message.content.strip()
-            except Exception:
-                spoken = spoken[:100]
+        saved_path = self._extract_saved_path(result)
+        if saved_path:
+            _open_in_default_app(saved_path)
+            import os as _os
+            filename = _os.path.basename(saved_path)
+            spoken = f"Your doc is saved as {filename} and I've opened it for you, boss."
+        else:
+            spoken = await self._summarise_for_voice(tool_name, filtered)
 
         print(f"[JARVIS] {spoken}")
         await self._speak(spoken, direction)
+
+    @staticmethod
+    def _extract_saved_path(raw: str) -> str | None:
+        """Return the file path from a writer tool response, if present."""
+        m = _WRITER_SAVED_PATH.search(raw)
+        return m.group(1).strip() if m else None
 
     async def _handle_turn(self, user_text: str, direction) -> None:
         """Run one streaming LLM turn, push sentences to TTS, queue tool calls."""
@@ -217,6 +309,15 @@ class JarvisProcessor(FrameProcessor):
             self._history.append({"role": "assistant", "content": spoken_text})
         self._last_reply = spoken_text
 
+        # Only fire a generic ack once if the LLM didn't speak any pre-tool
+        # text — each heavy tool speaks its own tailored progress line inside
+        # _run_tool. Tools themselves run SEQUENTIALLY so status announcements
+        # stay coherent (no overlapping "researching…" / "drafting…" lines).
+        if tool_calls_raw and not spoken_text:
+            ack = random.choice(_ACK)
+            print(f"[JARVIS] {ack}")
+            await self._speak(ack, direction)
+
         for tc in tool_calls_raw.values():
             name = tc["name"]
             try:
@@ -227,12 +328,7 @@ class JarvisProcessor(FrameProcessor):
             print(f"[JARVIS] → tool: {name}({args})")
             await _hud_broadcast("tool_call", {"name": name, "args": args})
 
-            if not spoken_text:
-                ack = random.choice(_ACK)
-                print(f"[JARVIS] {ack}")
-                await self._speak(ack, direction)
-
-            asyncio.ensure_future(self._run_tool_bg(name, args, direction))
+            await self._run_tool(name, args, direction)
 
     async def process_frame(self, frame, direction):
         await super().process_frame(frame, direction)
@@ -393,7 +489,9 @@ async def run_pipeline() -> None:
         LocalAudioTransportParams(
             audio_in_enabled=True,
             audio_out_enabled=True,
-            output_device_index=1,
+            # Let pyaudio pick the system default output device. A hardcoded
+            # index here previously failed with "Invalid number of channels"
+            # when macOS reassigned device indices or a new device appeared.
             audio_out_sample_rate=24000,
         )
     )

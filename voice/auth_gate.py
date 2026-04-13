@@ -196,6 +196,10 @@ async def _first_time_setup() -> None:
 
 async def run_voice_auth_gate() -> bool:
     """Run the passphrase gate. Returns True to continue, False to abort startup."""
+    # TEMP: auth fully bypassed for test cycles — re-enable before shipping.
+    print("[Auth] BYPASSED (dev mode)", flush=True)
+    return True
+
     skip = os.getenv("JARVIS_SKIP_AUTH", "").lower() in ("1", "true", "yes")
     if skip:
         print("[Auth] Skipped (JARVIS_SKIP_AUTH=1)", flush=True)

@@ -204,13 +204,15 @@ def create_company_research_doc(company_data: dict, title: str = "") -> str:
     lines.append("---")
     lines.append("")
 
-    # Executive Summary
+    # Executive Summary — preserve the upstream research's own structure by
+    # demoting top-level headings (# / ##) to ### / #### so they nest cleanly
+    # under our ## Executive Summary anchor. Previously we stripped every
+    # leading # which produced a wall of unformatted text.
     lines.append("## Executive Summary")
     lines.append("")
     exec_summary = company_data.get("executive_summary", "")
-    # Strip markdown headers from executive summary (it has its own structure)
-    exec_clean = re.sub(r'^#+\s*', '', exec_summary, flags=re.MULTILINE)
-    lines.append(exec_clean[:1500] if exec_clean else f"This report provides a comprehensive analysis of {company}.")
+    exec_demoted = re.sub(r'^(#{1,4})\s', lambda m: '#' * (len(m.group(1)) + 2) + ' ', exec_summary, flags=re.MULTILINE)
+    lines.append(exec_demoted or f"This report provides a comprehensive analysis of {company}.")
     lines.append("")
     lines.append("---")
     lines.append("")
@@ -300,12 +302,13 @@ def create_market_analysis_doc(market_data: dict, title: str = "") -> str:
     lines.append("---")
     lines.append("")
 
-    # Executive Summary
+    # Executive Summary — same heading-demotion rule as the company template
+    # so the upstream research structure survives intact.
     lines.append("## Executive Summary")
     lines.append("")
     exec_summary = market_data.get("executive_summary", "")
-    exec_clean = re.sub(r'^#+\s*', '', exec_summary, flags=re.MULTILINE)
-    lines.append(exec_clean[:1500] if exec_clean else f"This report provides a market analysis of {subject}.")
+    exec_demoted = re.sub(r'^(#{1,4})\s', lambda m: '#' * (len(m.group(1)) + 2) + ' ', exec_summary, flags=re.MULTILINE)
+    lines.append(exec_demoted or f"This report provides a market analysis of {subject}.")
     lines.append("")
     lines.append("---")
     lines.append("")

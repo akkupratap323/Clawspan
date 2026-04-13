@@ -59,6 +59,14 @@ class _OpenAIv1EmbeddingFunction(EmbeddingFunction[Documents]):
         response = self._client.embeddings.create(model=self._model, input=list(input))
         return [item.embedding for item in response.data]
 
+    @staticmethod
+    def name() -> str:
+        # Chroma persists this identifier alongside the collection and refuses
+        # to reopen with a mismatched one. The existing palace was created by
+        # chromadb's bundled OpenAIEmbeddingFunction (identifier "openai"),
+        # so keep the name compatible.
+        return "openai"
+
 
 def _get_embedding_fn() -> _OpenAIv1EmbeddingFunction:
     """OpenAI text-embedding-3-small — 1536-dim, excellent for personal facts."""
@@ -75,21 +83,21 @@ _collection = None
 
 
 def _get_collection():
-    """Get or create the palace ChromaDB collection with OpenAI embeddings."""
+    """Get or create the palace ChromaDB collection with OpenAI embeddings.
+
+    Uses ``get_or_create_collection`` which is atomic in chromadb's rust
+    backend — avoids the get/except/create race that fires when multiple
+    async tasks (fact extractor + memory context builder) initialise the
+    collection concurrently on a cold pipeline start.
+    """
     global _client, _collection
     if _collection is not None:
         return _collection
     _client = chromadb.PersistentClient(path=PALACE_PATH)
-    try:
-        _collection = _client.get_collection(
-            COLLECTION_NAME,
-            embedding_function=_get_embedding_fn(),
-        )
-    except Exception:
-        _collection = _client.create_collection(
-            COLLECTION_NAME,
-            embedding_function=_get_embedding_fn(),
-        )
+    _collection = _client.get_or_create_collection(
+        COLLECTION_NAME,
+        embedding_function=_get_embedding_fn(),
+    )
     return _collection
 
 

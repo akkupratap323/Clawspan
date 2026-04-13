@@ -133,9 +133,9 @@ class GitHubAccountCache:
     def _run_insights_bg(self, full_name: str) -> None:
         """Run repo_insights in background — writes results to KG."""
         try:
-            import jarvis_tools as tools
+            from tools.voice_tools.github_tool import exec_repo_insights
             owner, repo = full_name.split("/", 1)
-            result = tools._exec_repo_insights(owner, repo)
+            result = exec_repo_insights(owner, repo)
             print(f"[GitHubCache] Insights cached for {full_name}", flush=True)
             # Summarise risk count in a notification
             risk_count = result.count("    • ") if "Risks:" in result else 0

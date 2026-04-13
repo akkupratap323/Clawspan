@@ -17,15 +17,49 @@ from tools.writer import (
 )
 
 
+def _infer_company_from_title(title: str) -> str:
+    """Pull a plausible company name out of a doc title.
+
+    Voice-generated titles tend to look like "Raga AI Deep Research Brief" —
+    we strip off the trailing "Deep Research / Research / Brief / Report /
+    Profile" boilerplate and whatever's left is the subject.
+    """
+    import re as _re
+    cleaned = _re.sub(
+        r"\s*(deep\s+research(\s+brief)?|research(\s+brief)?|brief|report|profile|analysis)\s*$",
+        "",
+        title,
+        flags=_re.IGNORECASE,
+    )
+    return cleaned.strip() or title.strip()
+
+
 def exec_writer_create(action: str, title: str = "", content: str = "",
                        doc_type: str = "document", **_kw) -> str:
-    """Create a professional document (company research, market analysis, meeting prep, technical, custom)."""
+    """Create a professional document (company research, market analysis, meeting prep, technical, custom).
+
+    For ``company_research`` / ``market_analysis`` the voice LLM usually cannot
+    pipe the upstream research output into ``content`` in a single turn, so we
+    fetch the research ourselves when ``content`` is missing. That way a user
+    saying "research Raga AI and save a doc" produces a filled-in brief
+    instead of an empty template.
+    """
     if action == "company_research":
-        data = {"company": content, "sections": {}}
-        formatted = _writer_company(data, title=title)
+        company = (content or _infer_company_from_title(title)).strip()
+        if not company:
+            return "writer_create: need a company name in title or content."
+        from tools.voice_tools.research import exec_research_company
+        research_md = exec_research_company(company_name=company)
+        data = {"company": company, "executive_summary": research_md, "sections": {}}
+        formatted = _writer_company(data, title=title or f"{company} Company Research")
     elif action == "market_analysis":
-        data = {"subject": content, "sections": {}}
-        formatted = _writer_market(data, title=title)
+        subject = (content or _infer_company_from_title(title)).strip()
+        if not subject:
+            return "writer_create: need a market/topic in title or content."
+        from tools.voice_tools.research import exec_market_research
+        research_md = exec_market_research(ticker_or_company=subject)
+        data = {"subject": subject, "executive_summary": research_md, "sections": {}}
+        formatted = _writer_market(data, title=title or f"{subject} Market Analysis")
     elif action == "meeting_prep":
         data = {"sections": {}}
         formatted = _writer_meeting(data, title=title)

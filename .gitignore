@@ -87,3 +87,11 @@ Thumbs.db
 # ── Logs ────────────────────────────────────────────────────────────────
 *.log
 logs/
+
+# Runtime session logs
+agents/incident-commander/sessions/
+agents/squad-brain/sessions/
+*.jsonl
+*.jsonl.*
+sessions.json
+
