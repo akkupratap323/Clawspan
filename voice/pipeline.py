@@ -536,14 +536,15 @@ async def run_pipeline() -> None:
     )
 
     if _needs_onboarding:
-        processor._onboarding_active = True
-        processor._onboarding_index = 0
+        clawspan._onboarding_active = True
+        clawspan._onboarding_index = 0
 
     pipeline = Pipeline([
         transport.input(),
         stt,
         user_agg,
-        processor,        tts,
+        clawspan,
+        tts,
         transport.output(),
         assistant_agg,
     ])
