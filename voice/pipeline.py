@@ -439,9 +439,9 @@ def _time_of_day(hour: int) -> str:
 async def run_pipeline() -> None:
     """Start the Clawspan voice pipeline (auth gate → wake word → pipecat loop)."""
     from utils import play_sound
-    from voice.auth_gate import run_voice_auth_gate
+    from voice.auth_gate import run_text_auth_gate
 
-    if not await run_voice_auth_gate():
+    if not await run_text_auth_gate():
         return
 
     play_sound("activated")

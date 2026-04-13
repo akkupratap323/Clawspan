@@ -195,18 +195,77 @@ async def _first_time_setup() -> None:
 
 
 async def run_voice_auth_gate() -> bool:
-    """Run the passphrase gate. Returns True to continue, False to abort startup."""
-    # TEMP: auth fully bypassed for test cycles — re-enable before shipping.
-    print("[Auth] BYPASSED (dev mode)", flush=True)
-    return True
-
-    skip = os.getenv("Clawspan_SKIP_AUTH", "").lower() in ("1", "true", "yes")
+    """Run the passphrase gate via voice (mic capture + STT). Returns True to continue."""
+    skip = os.getenv("CLAWSPAN_SKIP_AUTH", "").lower() in ("1", "true", "yes")
     if skip:
-        print("[Auth] Skipped (Clawspan_SKIP_AUTH=1)", flush=True)
+        print("[Auth] Skipped (CLAWSPAN_SKIP_AUTH=1)", flush=True)
         return True
 
     if is_setup():
         return await _verify_existing_user()
 
     await _first_time_setup()
+    return True
+
+
+async def run_text_auth_gate() -> bool:
+    """Run the passphrase gate via typed password input. Returns True to continue."""
+    skip = os.getenv("CLAWSPAN_SKIP_AUTH", "").lower() in ("1", "true", "yes")
+    if skip:
+        print("[Auth] Skipped (CLAWSPAN_SKIP_AUTH=1)", flush=True)
+        return True
+
+    if is_setup():
+        print("\n[Auth] Enter password:", flush=True)
+        for attempt in range(3):
+            remaining = lockout_remaining()
+            if remaining > 0:
+                print(f"[Auth] Locked. Wait {remaining}s.", flush=True)
+                import asyncio
+                await asyncio.sleep(remaining)
+                continue
+
+            pw = input("> ").strip()
+            result = check(pw)
+
+            if result == "ok":
+                print("[Auth] Access granted.", flush=True)
+                return True
+            elif result == "locked":
+                remaining = lockout_remaining()
+                print(f"[Auth] Access denied. Locked for {remaining}s.", flush=True)
+                return False
+            else:
+                attempts_left = 2 - attempt
+                print(f"[Auth] Wrong password. {attempts_left} attempts left.", flush=True)
+
+        print("[Auth] All attempts exhausted. Goodbye.", flush=True)
+        return False
+
+    # First run — set password
+    print("\n[Auth] First-time setup.", flush=True)
+    print("[Auth] Enter a password (will not be echoed):", flush=True)
+    try:
+        pw1 = input("> ").strip()
+    except (EOFError, KeyboardInterrupt):
+        print("\n[Auth] Cancelled.", flush=True)
+        return False
+
+    if not pw1:
+        print("[Auth] No password entered. Skipping setup.", flush=True)
+        return True
+
+    print("[Auth] Confirm password:", flush=True)
+    try:
+        pw2 = input("> ").strip()
+    except (EOFError, KeyboardInterrupt):
+        print("\n[Auth] Cancelled.", flush=True)
+        return False
+
+    if pw1 == pw2:
+        setup_password(pw1)
+        print("[Auth] Password set. Systems online.", flush=True)
+        return True
+
+    print("[Auth] Passwords didn't match. Skipping setup.", flush=True)
     return True
