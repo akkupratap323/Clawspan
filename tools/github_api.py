@@ -79,7 +79,7 @@ class GitHubAPI:
         headers = {
             "Accept": "application/vnd.github+json",
             "X-GitHub-Api-Version": "2022-11-28",
-            "User-Agent": "JARVIS/1.0",
+            "User-Agent": "Clawspan/1.0",
         }
         if self._token:
             headers["Authorization"] = f"Bearer {self._token}"
@@ -347,7 +347,7 @@ class GitHubAPI:
         headers = {
             "Accept": "application/vnd.github.diff",
             "X-GitHub-Api-Version": "2022-11-28",
-            "User-Agent": "JARVIS/1.0",
+            "User-Agent": "Clawspan/1.0",
         }
         if self._token:
             headers["Authorization"] = f"Bearer {self._token}"

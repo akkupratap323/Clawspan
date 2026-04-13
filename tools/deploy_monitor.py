@@ -21,7 +21,7 @@ from typing import Any
 
 # ── Tracked services persistence ─────────────────────────────────────────────
 
-SERVICES_PATH = os.path.expanduser("~/.jarvis_deploy_services.json")
+SERVICES_PATH = os.path.expanduser("~/.clawspan_deploy_services.json")
 
 
 @dataclass
@@ -98,7 +98,7 @@ def check_health(url: str, timeout: float = 10.0,
     start = time.monotonic()
     try:
         req = urllib.request.Request(url, method="GET")
-        req.add_header("User-Agent", "JARVIS-DeployMonitor/1.0")
+        req.add_header("User-Agent", "Clawspan-DeployMonitor/1.0")
 
         # Skip SSL verification for self-signed certs in staging
         ctx = ssl.create_default_context()

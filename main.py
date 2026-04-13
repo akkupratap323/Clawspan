@@ -1,5 +1,5 @@
 """
-JARVIS — Your Iron Man AI Assistant
+Clawspan — Your Iron Man AI Assistant
 
 Usage:
     python main.py          # Voice mode (default) — wake word → voice pipeline
@@ -14,7 +14,7 @@ from utils import print_banner
 
 async def run_voice() -> None:
     """Start the voice pipeline (Mic → STT → GPT → TTS → Speaker)."""
-    from jarvis_pipeline import run_pipeline
+    from clawspan_pipeline import run_pipeline
     await run_pipeline()
 
 
@@ -113,21 +113,21 @@ async def run_text() -> None:
         github_router=github_router,
     )
 
-    print(f"\n[JARVIS] Text mode ready. Profile: {profile.name}. Type your commands (Ctrl+C to exit).\n")
+    print(f"\n[Clawspan] Text mode ready. Profile: {profile.name}. Type your commands (Ctrl+C to exit).\n")
     while True:
         try:
             user_input = input("You: ").strip()
         except (EOFError, KeyboardInterrupt):
-            print("\n[JARVIS] Goodbye, sir.")
+            print("\n[Clawspan] Goodbye, sir.")
             break
         if not user_input:
             continue
         if user_input.lower() in ("exit", "quit", "bye"):
-            print("[JARVIS] Goodbye, sir.")
+            print("[Clawspan] Goodbye, sir.")
             break
 
         response = await brain.think(user_input)
-        print(f"JARVIS: {response}\n")
+        print(f"Clawspan: {response}\n")
 
 
 async def main() -> None:
@@ -143,5 +143,5 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\n[JARVIS] Shutting down. Goodbye, sir.")
+        print("\n[Clawspan] Shutting down. Goodbye, sir.")
         sys.exit(0)

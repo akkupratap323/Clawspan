@@ -125,7 +125,7 @@ async def _auto_extract_facts(user_input: str, reply: str) -> None:
 
 
 class BaseAgent:
-    """Abstract base for all JARVIS agents.
+    """Abstract base for all Clawspan agents.
 
     Subclass contract:
         name:        str                          — e.g. "SystemAgent"

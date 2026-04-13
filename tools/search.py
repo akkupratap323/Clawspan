@@ -55,7 +55,7 @@ def duckduckgo_search(query: str, max_results: int = 5) -> str:
     try:
         encoded = urllib.parse.quote(query)
         url = f"https://api.duckduckgo.com/?q={encoded}&format=json&no_html=1&skip_disambig=1"
-        req = urllib.request.Request(url, headers={"User-Agent": "JARVIS/1.0"})
+        req = urllib.request.Request(url, headers={"User-Agent": "Clawspan/1.0"})
         with urllib.request.urlopen(req, timeout=8) as resp:
             data = json.loads(resp.read().decode())
 

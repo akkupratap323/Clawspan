@@ -1,8 +1,8 @@
-"""JARVIS Authentication — password-protected startup.
+"""Clawspan Authentication — password-protected startup.
 
-Password is stored as SHA-256 + salt hash (never plaintext) in ~/.jarvis_auth.json.
+Password is stored as SHA-256 + salt hash (never plaintext) in ~/.clawspan_auth.json.
 On first run: user sets a passphrase (voice or text).
-On every startup: user must authenticate before accessing JARVIS.
+On every startup: user must authenticate before accessing Clawspan.
 
 Security:
   - SHA-256 + random salt (16 bytes)
@@ -10,7 +10,7 @@ Security:
   - Lockout timestamp stored in auth file
   - Works with voice (STT) — passphrases like "iron man mark fifty"
 
-File: ~/.jarvis_auth.json
+File: ~/.clawspan_auth.json
 {
   "salt": "a1b2c3...",
   "hash": "sha256_hex...",
@@ -29,7 +29,7 @@ import secrets
 import time
 from typing import Literal
 
-AUTH_PATH = os.path.expanduser("~/.jarvis_auth.json")
+AUTH_PATH = os.path.expanduser("~/.clawspan_auth.json")
 
 MAX_ATTEMPTS = 3
 LOCKOUT_SECS = 60

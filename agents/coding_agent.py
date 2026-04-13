@@ -11,7 +11,7 @@ from tools.search import tavily_search
 from tools.files import read_file, write_file
 from tools.terminal import run as run_terminal
 
-JARVIS_DIR = os.path.expanduser("~/Downloads/jarvis")
+CLAWSPAN_DIR = os.path.expanduser("~/Downloads/jarvis")
 
 SYSTEM_PROMPT = """You handle coding tasks, scripts, GitHub, file operations, and deep research.
 

@@ -21,7 +21,7 @@ from typing import Any
 from core.llm import get_client, get_model
 from shared.mempalace_adapter import save_fact, search_facts
 
-_EXTRACTOR_PROMPT = """You extract durable facts from a single conversation turn between a user ("boss") and JARVIS (his AI assistant). Output JSON only.
+_EXTRACTOR_PROMPT = """You extract durable facts from a single conversation turn between a user ("boss") and Clawspan (his AI assistant). Output JSON only.
 
 A DURABLE FACT is something worth remembering for future conversations:
 - Boss's identity, role, skills, projects, goals
@@ -53,7 +53,7 @@ async def extract_and_save(user_text: str, assistant_reply: str) -> list[str]:
     if not user_text.strip():
         return []
 
-    turn = f'BOSS: "{user_text}"\nJARVIS: "{assistant_reply}"'
+    turn = f'BOSS: "{user_text}"\nClawspan: "{assistant_reply}"'
 
     try:
         client = get_client()

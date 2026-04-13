@@ -1,6 +1,6 @@
 """UserProfile — persistent user identity.
 
-Loads from ~/.jarvis_profile.json at startup.
+Loads from ~/.clawspan_profile.json at startup.
 Injected into EVERY agent's system prompt for personalization.
 Auto-learns preferences from interactions.
 """
@@ -12,7 +12,7 @@ import os
 from dataclasses import dataclass, field, asdict
 from typing import Any
 
-PROFILE_PATH = os.path.expanduser("~/.jarvis_profile.json")
+PROFILE_PATH = os.path.expanduser("~/.clawspan_profile.json")
 
 DEFAULT_PROFILE = {
     "name": "sir",

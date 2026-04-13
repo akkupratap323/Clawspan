@@ -34,8 +34,8 @@ def _get_gh() -> GitHubAPI:
 
 def _get_github_cache() -> GitHubAccountCache | None:
     try:
-        import jarvis_pipeline
-        return jarvis_pipeline._github_cache
+        import clawspan_pipeline
+        return clawspan_pipeline._github_cache
     except (ImportError, AttributeError):
         return None
 
@@ -122,7 +122,7 @@ def exec_github(action: str, repo: str = "", query: str = "", **_kw) -> str:
             "stars": str(info["stars"]),
             "description": (info["description"] or "")[:200],
         })
-        add_triple("jarvis", "tracks", full_name)
+        add_triple("clawspan", "tracks", full_name)
         if latest_tag:
             add_triple(full_name, "current_version", latest_tag.lstrip("v"))
         if info.get("language"):

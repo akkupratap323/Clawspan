@@ -29,7 +29,7 @@ from core.auth import (
 @pytest.fixture(autouse=True)
 def _isolated_auth(tmp_path):
     """Redirect auth file to temp directory for each test."""
-    fake_path = str(tmp_path / "jarvis_auth.json")
+    fake_path = str(tmp_path / "clawspan_auth.json")
     # Remove any existing auth
     if os.path.exists(AUTH_PATH):
         # Don't touch real file in tests

@@ -1,5 +1,5 @@
 """
-MemPalace adapter — bridges JARVIS memory API to MemPalace's 4-layer stack.
+MemPalace adapter — bridges Clawspan memory API to MemPalace's 4-layer stack.
 
 Provides the same interface as shared/memory.py so all agents work unchanged.
 Under the hood: ChromaDB (semantic search) + SQLite knowledge graph (entities).
@@ -31,7 +31,7 @@ KG_PATH = os.path.join(MEMPALACE_DIR, "knowledge_graph.sqlite3")
 COLLECTION_NAME = "mempalace_drawers"
 
 # Legacy SQLite (for migration)
-LEGACY_MEMORY_DB = os.path.expanduser("~/.jarvis_memory.db")
+LEGACY_MEMORY_DB = os.path.expanduser("~/.clawspan_memory.db")
 
 # ── Ensure dirs exist ────────────────────────────────────────────────────────
 
@@ -171,7 +171,7 @@ def save_fact(key: str, value: str, wing: str = "personal",
             "key": key,
             "importance": importance,
             "saved_at": now.strftime("%Y-%m-%d %H:%M"),
-            "source_file": "jarvis_live",
+            "source_file": "clawspan_live",
         }],
     )
 
@@ -604,7 +604,7 @@ def save_session_context(conversation_ref: list, system_prompt: str,
     existing_lines = existing.split(" | ") if existing else []
     new_entry = (
         f"[{datetime.now().strftime('%m/%d %H:%M')}] "
-        f"You: {user_input[:80]} -> JARVIS: {reply[:80]}"
+        f"You: {user_input[:80]} -> Clawspan: {reply[:80]}"
     )
     existing_lines.append(new_entry)
     existing_lines = existing_lines[-5:]
@@ -626,7 +626,7 @@ def save_session_context(conversation_ref: list, system_prompt: str,
 # ── Migration ────────────────────────────────────────────────────────────────
 
 def migrate_from_legacy_db() -> int:
-    """Migrate facts from ~/.jarvis_memory.db (old SQLite) into MemPalace.
+    """Migrate facts from ~/.clawspan_memory.db (old SQLite) into MemPalace.
 
     Returns number of migrated entries. Only runs once (marker file).
     """

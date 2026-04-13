@@ -1,7 +1,7 @@
 """Persistent memory — MemPalace-powered semantic memory.
 
 Used by:
-  - Voice pipeline (jarvis_tools.py) for save/recall/forget
+  - Voice pipeline (clawspan_tools.py) for save/recall/forget
   - Agents (via memory_tool) for personal fact storage
   - BaseAgent for session context
 

@@ -1,6 +1,6 @@
 """ResearchAgent — Deep Research Engine.
 
-Your JARVIS research brain — capable of Tavily-like deep research,
+Your Clawspan research brain — capable of Tavily-like deep research,
 company analysis, market intelligence, meeting prep, and web crawling.
 
 CAPABILITIES:
@@ -30,7 +30,7 @@ from tools.research import (
 from tools.files import read_file
 from tools import memory as mem_tool
 
-SYSTEM_PROMPT = """You are JARVIS's Deep Research Agent — a world-class research analyst powered by Tavily, web crawling, and AI synthesis.
+SYSTEM_PROMPT = """You are Clawspan's Deep Research Agent — a world-class research analyst powered by Tavily, web crawling, and AI synthesis.
 
 ══ YOUR CAPABILITIES ═══════════════════════════════════════════════════════
 

@@ -5,7 +5,7 @@ user mic until the bot finishes its opening statement. We add a
 `PostSpeechMuteStrategy` that mutes during every bot utterance plus a short
 tail, so speaker audio bleeding into the mic is never re-transcribed.
 
-This is JARVIS's production echo-cancellation approach — simpler and more
+This is Clawspan's production echo-cancellation approach — simpler and more
 reliable than the native VPIO AEC path kept under native_aec/ for showcase.
 """
 

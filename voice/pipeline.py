@@ -1,9 +1,9 @@
-"""JARVIS voice pipeline orchestrator.
+"""Clawspan voice pipeline orchestrator.
 
 Flow:
-  Mic → Silero VAD → Deepgram STT → JarvisProcessor → Cartesia TTS → Speaker
+  Mic → Silero VAD → Deepgram STT → ClawspanProcessor → Cartesia TTS → Speaker
 
-JarvisProcessor runs a single streaming LLM turn per user utterance,
+ClawspanProcessor runs a single streaming LLM turn per user utterance,
 pushes sentences to TTS as they arrive, and fires tools in background
 threads so the voice never has to wait on I/O.
 
@@ -46,7 +46,7 @@ from pipecat.turns.user_stop.speech_timeout_user_turn_stop_strategy import Speec
 from pipecat.turns.user_stop.turn_analyzer_user_turn_stop_strategy import TurnAnalyzerUserTurnStopStrategy
 from pipecat.turns.user_turn_strategies import UserTurnStrategies
 
-import jarvis_tools as tools
+import clawspan_tools as tools
 from config import CARTESIA_API_KEY, CARTESIA_VOICE_ID, DEEPGRAM_API_KEY, OPENAI_API_KEY
 from core.awareness import AwarenessLoop, NotificationQueue
 from core.context import SessionContext
@@ -120,7 +120,7 @@ def _build_system_prompt(profile: UserProfile, context: SessionContext) -> str:
     return _build_system_prompt_impl(profile, context, _github_cache)
 
 
-class JarvisProcessor(FrameProcessor):
+class ClawspanProcessor(FrameProcessor):
     """Pipecat processor that drives one streaming LLM turn per user utterance.
 
     Responsibilities:
@@ -167,7 +167,7 @@ class JarvisProcessor(FrameProcessor):
         is_heavy = tool_name in _HEAVY_TOOLS
         if is_heavy:
             system = (
-                "You are JARVIS. Turn this raw tool output into 2-3 natural spoken "
+                "You are Clawspan. Turn this raw tool output into 2-3 natural spoken "
                 "sentences summarising the gist for your boss. No URLs, no markdown, "
                 "no headings — just the crux in plain spoken English."
             )
@@ -208,7 +208,7 @@ class JarvisProcessor(FrameProcessor):
 
         ack = _HEAVY_PROGRESS_ACK.get(tool_name)
         if is_heavy and ack:
-            print(f"[JARVIS/ack] {ack}")
+            print(f"[Clawspan/ack] {ack}")
             await self._speak(ack, direction)
 
         print(f"[Tool] Running {tool_name}({tool_args})...")
@@ -228,7 +228,7 @@ class JarvisProcessor(FrameProcessor):
         else:
             spoken = await self._summarise_for_voice(tool_name, filtered)
 
-        print(f"[JARVIS] {spoken}")
+        print(f"[Clawspan] {spoken}")
         await self._speak(spoken, direction)
 
     @staticmethod
@@ -305,7 +305,7 @@ class JarvisProcessor(FrameProcessor):
 
         spoken_text = "".join(spoken_tokens).strip()
         if spoken_text:
-            print(f"[JARVIS] {spoken_text}")
+            print(f"[Clawspan] {spoken_text}")
             self._history.append({"role": "assistant", "content": spoken_text})
         self._last_reply = spoken_text
 
@@ -315,7 +315,7 @@ class JarvisProcessor(FrameProcessor):
         # stay coherent (no overlapping "researching…" / "drafting…" lines).
         if tool_calls_raw and not spoken_text:
             ack = random.choice(_ACK)
-            print(f"[JARVIS] {ack}")
+            print(f"[Clawspan] {ack}")
             await self._speak(ack, direction)
 
         for tc in tool_calls_raw.values():
@@ -325,7 +325,7 @@ class JarvisProcessor(FrameProcessor):
             except json.JSONDecodeError:
                 args = {}
 
-            print(f"[JARVIS] → tool: {name}({args})")
+            print(f"[Clawspan] → tool: {name}({args})")
             await _hud_broadcast("tool_call", {"name": name, "args": args})
 
             await self._run_tool(name, args, direction)
@@ -397,7 +397,7 @@ class JarvisProcessor(FrameProcessor):
         await _hud_broadcast("thinking")
 
         if any(p in user_text.lower() for p in EXIT_PHRASES):
-            await self._speak("Going to standby. Say Hey Jarvis when you need me, sir.", direction)
+            await self._speak("Going to standby. Say Hey Clawspan when you need me, sir.", direction)
             return
 
         await self._handle_turn(user_text, direction)
@@ -437,7 +437,7 @@ def _time_of_day(hour: int) -> str:
 
 
 async def run_pipeline() -> None:
-    """Start the JARVIS voice pipeline (auth gate → wake word → pipecat loop)."""
+    """Start the Clawspan voice pipeline (auth gate → wake word → pipecat loop)."""
     from utils import play_sound
     from voice.auth_gate import run_voice_auth_gate
 
@@ -528,7 +528,7 @@ async def run_pipeline() -> None:
         ),
     )
 
-    jarvis = JarvisProcessor(
+    clawspan = ClawspanProcessor(
         api_key=OPENAI_API_KEY,
         context=context,
         profile=profile,
@@ -536,15 +536,14 @@ async def run_pipeline() -> None:
     )
 
     if _needs_onboarding:
-        jarvis._onboarding_active = True
-        jarvis._onboarding_index = 0
+        processor._onboarding_active = True
+        processor._onboarding_index = 0
 
     pipeline = Pipeline([
         transport.input(),
         stt,
         user_agg,
-        jarvis,
-        tts,
+        processor,        tts,
         transport.output(),
         assistant_agg,
     ])
@@ -566,10 +565,10 @@ async def run_pipeline() -> None:
         await asyncio.sleep(1.0)
 
         if _needs_onboarding:
-            print("\n[JARVIS] First run detected. Starting onboarding...\n")
+            print("\n[Clawspan] First run detected. Starting onboarding...\n")
             first_q = build_voice_onboarding_prompt(0)
             greeting = (
-                "Hello! I'm JARVIS, your personal AI assistant. "
+                "Hello! I'm Clawspan, your personal AI assistant. "
                 "Before we get started, I need to know a few things about you. "
                 f"{first_q}"
             )
@@ -579,7 +578,7 @@ async def run_pipeline() -> None:
             await task.queue_frame(LLMContextFrame(context=onboarding_ctx))
             return
 
-        print("\n[JARVIS] Online. Running startup briefing...\n")
+        print("\n[Clawspan] Online. Running startup briefing...\n")
 
         from datetime import datetime
 

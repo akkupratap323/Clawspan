@@ -3,7 +3,7 @@
 Two entry points for existing vs first-run users, gated by
 `core.auth.is_setup()`. The gate captures microphone audio via sounddevice,
 ships it to Deepgram's prerecorded endpoint for transcription, then matches
-against the stored passphrase hash. Respects the `JARVIS_SKIP_AUTH` env var
+against the stored passphrase hash. Respects the `Clawspan_SKIP_AUTH` env var
 for local development.
 """
 
@@ -200,9 +200,9 @@ async def run_voice_auth_gate() -> bool:
     print("[Auth] BYPASSED (dev mode)", flush=True)
     return True
 
-    skip = os.getenv("JARVIS_SKIP_AUTH", "").lower() in ("1", "true", "yes")
+    skip = os.getenv("Clawspan_SKIP_AUTH", "").lower() in ("1", "true", "yes")
     if skip:
-        print("[Auth] Skipped (JARVIS_SKIP_AUTH=1)", flush=True)
+        print("[Auth] Skipped (Clawspan_SKIP_AUTH=1)", flush=True)
         return True
 
     if is_setup():

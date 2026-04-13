@@ -142,7 +142,7 @@ class GitHubAccountCache:
             if risk_count > 0:
                 self._notify(
                     f"{full_name}: {risk_count} risks flagged",
-                    "Ask JARVIS for repo insights.",
+                    "Ask Clawspan for repo insights.",
                 )
         except Exception as e:
             print(f"[GitHubCache] Insight run failed for {full_name}: {e}", flush=True)

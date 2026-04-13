@@ -1,7 +1,7 @@
 {
-  "name": "jarvis-hud",
+  "name": "clawspan-hud",
   "version": "1.0.0",
-  "description": "JARVIS Iron Man HUD overlay",
+  "description": "Clawspan Iron Man HUD overlay",
   "main": "main.js",
   "scripts": {
     "start": "electron ."

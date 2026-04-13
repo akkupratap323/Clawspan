@@ -1,5 +1,5 @@
 """
-WakeWord — "Hey Jarvis" detection using OpenWakeWord (ONNX).
+WakeWord — "Hey Clawspan" detection using OpenWakeWord (ONNX).
 Uses sounddevice (not PyAudio) to avoid macOS volume ducking conflicts.
 """
 
@@ -27,17 +27,17 @@ class WakeWordDetector:
                 wakeword_models=[WAKE_MODEL_PATH],
                 inference_framework="onnx",
             )
-            print("[Wake] 'Hey Jarvis' detector ready.")
+            print("[Wake] 'Hey Clawspan' detector ready.")
         except Exception as e:
             print(f"[Wake] OpenWakeWord load failed: {e}")
 
     def wait_for_wake_word(self) -> None:
-        """Block until 'Hey Jarvis' is detected."""
+        """Block until 'Hey Clawspan' is detected."""
         if self._model is None:
             print("[Wake] Model not loaded — skipping wake word, activating now.")
             return
 
-        print("[JARVIS] Standing by... say 'Hey Jarvis' to activate.\n")
+        print("[Clawspan] Standing by... say 'Hey Clawspan' to activate.\n")
 
         q: queue.Queue = queue.Queue()
 
@@ -60,5 +60,5 @@ class WakeWordDetector:
                 scores = list(self._model.prediction_buffer.get("hey_jarvis", []))
                 if scores and max(scores[-3:]) > self._threshold:
                     self._model.prediction_buffer["hey_jarvis"] = []
-                    print("[Wake] 'Hey Jarvis' detected!")
+                    print("[Wake] 'Hey Clawspan' detected!")
                     break

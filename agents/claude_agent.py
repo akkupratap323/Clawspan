@@ -15,9 +15,9 @@ import subprocess
 from openai import AsyncOpenAI
 from config import DEEPSEEK_API_KEY, DEEPSEEK_MODEL, DEEPSEEK_BASE_URL, GITHUB_TOKEN, TAVILY_API_KEY
 
-JARVIS_DIR = os.path.expanduser("~/Downloads/jarvis")
+CLAWSPAN_DIR = os.path.expanduser("~/Downloads/jarvis")
 
-SYSTEM_PROMPT = """You are JARVIS's specialist coding and automation agent, powered by DeepSeek.
+SYSTEM_PROMPT = """You are Clawspan's specialist coding and automation agent, powered by DeepSeek.
 
 YOU HANDLE: coding tasks, fixing bugs, writing scripts, GitHub operations,
 web automation, file operations, deep research, installing packages, running tests.
@@ -117,7 +117,7 @@ def _run_bash(command: str) -> str:
     try:
         result = subprocess.run(
             command, shell=True, capture_output=True, text=True,
-            timeout=30, cwd=JARVIS_DIR
+            timeout=30, cwd=CLAWSPAN_DIR
         )
         out = (result.stdout + result.stderr).strip()
         return out[:1000] if out else "Command completed with no output."
@@ -185,7 +185,7 @@ def _run_claude_task(task: str) -> str:
         result = subprocess.run(
             ["claude", "--print", "--dangerously-skip-permissions", task],
             capture_output=True, text=True, timeout=120,
-            cwd=JARVIS_DIR, env=env
+            cwd=CLAWSPAN_DIR, env=env
         )
         return result.stdout.strip()[:1000] or "Task completed."
     except Exception as e:

@@ -1,4 +1,4 @@
-"""First-run onboarding — JARVIS asks key personal questions on first startup.
+"""First-run onboarding — Clawspan asks key personal questions on first startup.
 
 Detects first run by checking if MemPalace has any personal memories.
 Collects: name, work, key people, style preference, important notes.
@@ -237,7 +237,7 @@ def process_onboarding_answers(answers: dict[str, str]) -> UserProfile:
     notes_str = f"\nNotes: {notes}" if notes else ""
 
     identity = (
-        f"I am JARVIS, a personal AI assistant for {name}.\n"
+        f"I am Clawspan, a personal AI assistant for {name}.\n"
         f"Running on macOS. Casual, warm, witty. Uses 'sir' occasionally.\n"
         f"Communication style: {style}.{work_str}{people_str}{notes_str}\n"
         f"I remember everything and learn from every conversation."
@@ -317,7 +317,7 @@ def _parse_people(raw: str) -> list[tuple[str, str]]:
 async def run_text_onboarding() -> UserProfile:
     """Interactive text-mode onboarding. Asks questions via terminal input."""
     print("\n" + "=" * 55)
-    print("  JARVIS — First-Time Setup")
+    print("  Clawspan — First-Time Setup")
     print("  I need to know a few things about you to get started.")
     print("=" * 55 + "\n")
 

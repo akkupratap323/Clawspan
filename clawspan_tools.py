@@ -2,7 +2,7 @@
 
 All tool logic now lives in the domain-split modules under
 ``tools/voice_tools/``.  This file exists so that any existing imports of
-``from jarvis_tools import TOOLS, TOOL_MAP, execute`` continue to work
+``from clawspan_tools import TOOLS, TOOL_MAP, execute`` continue to work
 unchanged.
 """
 

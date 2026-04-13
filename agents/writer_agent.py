@@ -2,7 +2,7 @@
 
 Creates high-quality documents in multiple formats (Markdown, PDF, DOCX, HTML, TXT).
 Can delegate to Research Agent for data, then structure it into polished documents.
-Auto-saves to ~/JARVIS_Docs/ with smart organization.
+Auto-saves to ~/Clawspan_Docs/ with smart organization.
 
 CAPABILITIES:
   📝 Create company research reports, market analysis, meeting prep, technical docs
@@ -30,7 +30,7 @@ from tools.writer import (
 )
 from tools.files import read_file as _read_local_file
 
-SYSTEM_PROMPT = """You are JARVIS's Writer Agent — a world-class document creator, editor, and formatter.
+SYSTEM_PROMPT = """You are Clawspan's Writer Agent — a world-class document creator, editor, and formatter.
 
 ══ YOUR CAPABILITIES ═══════════════════════════════════════════════════════
 
@@ -79,7 +79,7 @@ For RESEARCH-BASED documents:
 1. Delegate to Research Agent: delegate("research", "research company X")
 2. Get structured research data back
 3. Create the document using the appropriate template
-4. Save it to ~/JARVIS_Docs/ with the right folder
+4. Save it to ~/Clawspan_Docs/ with the right folder
 5. Tell the user the file path and offer export options
 
 For CUSTOM documents:
@@ -112,7 +112,7 @@ For EDITS:
 
 ══ FILE ORGANIZATION ═══════════════════════════════════════════════════════
 
-Documents are saved to ~/JARVIS_Docs/ with subfolders:
+Documents are saved to ~/Clawspan_Docs/ with subfolders:
   reports/      — company research, market analysis
   meetings/     — meeting prep documents
   technical/    — README, API docs, architecture docs
@@ -126,7 +126,7 @@ Filename format: YYYY-MM-DD_Title_Type.md
 ══ RESPONSE STYLE ═════════════════════════════════════════════════════════
 
 For voice mode (spoken):
-- "Created and saved [Title] to ~/JARVIS_Docs/reports/. Want me to export it as PDF or DOCX?"
+- "Created and saved [Title] to ~/Clawspan_Docs/reports/. Want me to export it as PDF or DOCX?"
 - Keep it to 1-2 sentences. The document itself is the deliverable.
 
 For text mode:
@@ -142,7 +142,7 @@ TOOLS = [
             "description": (
                 "Create a professional company research report. "
                 "Can use raw research data from delegate('research', ...) or create from scratch. "
-                "Saves to ~/JARVIS_Docs/reports/."
+                "Saves to ~/Clawspan_Docs/reports/."
             ),
             "parameters": {
                 "type": "object",
@@ -164,7 +164,7 @@ TOOLS = [
             "description": (
                 "Create a market analysis report. "
                 "Can use raw market data from delegate('research', ...) or create from scratch. "
-                "Saves to ~/JARVIS_Docs/reports/."
+                "Saves to ~/Clawspan_Docs/reports/."
             ),
             "parameters": {
                 "type": "object",
@@ -185,7 +185,7 @@ TOOLS = [
             "name": "create_meeting_prep",
             "description": (
                 "Create a meeting preparation document with company background, "
-                "attendee research, and talking points. Saves to ~/JARVIS_Docs/meetings/."
+                "attendee research, and talking points. Saves to ~/Clawspan_Docs/meetings/."
             ),
             "parameters": {
                 "type": "object",
@@ -206,7 +206,7 @@ TOOLS = [
             "name": "create_technical_doc",
             "description": (
                 "Create technical documentation: README, API docs, architecture docs. "
-                "Saves to ~/JARVIS_Docs/technical/."
+                "Saves to ~/Clawspan_Docs/technical/."
             ),
             "parameters": {
                 "type": "object",
@@ -225,7 +225,7 @@ TOOLS = [
             "name": "create_custom_doc",
             "description": (
                 "Create any custom document: proposal, memo, brief, email, letter. "
-                "Saves to ~/JARVIS_Docs/."
+                "Saves to ~/Clawspan_Docs/."
             ),
             "parameters": {
                 "type": "object",

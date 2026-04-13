@@ -1,5 +1,5 @@
 """
-Shared memory system — used by all JARVIS agents.
+Shared memory system — used by all Clawspan agents.
 
 Now powered by MemPalace: ChromaDB (semantic search) + SQLite knowledge graph.
 This module maintains the same public API so all existing agents work unchanged.

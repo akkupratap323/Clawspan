@@ -1,4 +1,4 @@
-"""Voice tools — domain-split handlers for the JARVIS voice pipeline.
+"""Voice tools — domain-split handlers for the Clawspan voice pipeline.
 
 Each submodule contains handlers for one domain (system, music, research,
 desktop, comms, GitHub, deploy, writer, shell, memory). The public API

@@ -1,5 +1,5 @@
 """
-JARVIS Configuration
+Clawspan Configuration
 Add your API keys here or set as environment variables.
 """
 
@@ -15,7 +15,7 @@ CARTESIA_API_KEY    = os.getenv("CARTESIA_API_KEY", "")
 DEEPSEEK_API_KEY    = os.getenv("DEEPSEEK_API_KEY", "")
 GOOGLE_CLIENT_ID    = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
-GOOGLE_TOKEN_FILE   = os.path.expanduser("~/.jarvis_google_token.json")
+GOOGLE_TOKEN_FILE   = os.path.expanduser("~/.clawspan_google_token.json")
 GITHUB_TOKEN        = os.getenv("GITHUB_TOKEN", "")
 TAVILY_API_KEY      = os.getenv("TAVILY_API_KEY", "")
 OPENAI_API_KEY      = os.getenv("OPENAI_API_KEY", "")
@@ -29,7 +29,7 @@ DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 
 CARTESIA_VOICE_ID = os.getenv(
     "CARTESIA_VOICE_ID",
-    "694f9389-aac1-45b6-b726-9d9369183238"  # British JARVIS-like voice
+    "694f9389-aac1-45b6-b726-9d9369183238"  # British Clawspan-like voice
 )
 
 # ─── Audio Settings ──────────────────────────────────────────────────────────

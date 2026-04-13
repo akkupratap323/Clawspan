@@ -1,4 +1,4 @@
-# JARVIS — Your Personal AI Chief of Staff, Running on Your Mac
+# Clawspan — Your Personal AI Chief of Staff, Running on Your Mac
 
 > A voice-first, always-on AI servant that thinks like a co-founder.  
 > Built from scratch — no LangChain, no CrewAI, no agentic framework.  
@@ -6,11 +6,11 @@
 
 ---
 
-## What is JARVIS?
+## What is Clawspan?
 
-JARVIS is a voice-controlled AI assistant that lives on your Mac and acts like a co-founder who knows everything about you. You speak to it, it thinks, it acts — terminal commands, GitHub PRs, AWS health checks, deep research, structured docs, Gmail, Calendar. All through your voice.
+Clawspan is a voice-controlled AI assistant that lives on your Mac and acts like a co-founder who knows everything about you. You speak to it, it thinks, it acts — terminal commands, GitHub PRs, AWS health checks, deep research, structured docs, Gmail, Calendar. All through your voice.
 
-Most voice assistants wait for a command and read back a raw API response. JARVIS is different:
+Most voice assistants wait for a command and read back a raw API response. Clawspan is different:
 
 - Heavy tools announce themselves before running ("Digging into it now, boss.")
 - Results are compressed into 2-3 natural spoken sentences — no raw dumps reach TTS
@@ -33,7 +33,7 @@ flowchart TD
         direction TB
         AuthInput["Type Passphrase"]
         AuthCheck["SHA-256 + Salt Verify\ncore/auth.py"]
-        Lockout["3 attempts → 60s lockout\n~/.jarvis_auth.json"]
+        Lockout["3 attempts → 60s lockout\n~/.clawspan_auth.json"]
         AuthInput --> AuthCheck
         AuthCheck -->|"wrong × 3"| Lockout
     end
@@ -43,7 +43,7 @@ flowchart TD
         Mic["🎤 Microphone"]
         VAD["Silero VAD\nsilence detection"]
         STT["Deepgram nova-2\nSpeech → Text"]
-        JP["JarvisProcessor\nvoice/pipeline.py"]
+        JP["ClawspanProcessor\nvoice/pipeline.py"]
         TTS["Cartesia Sonic\nText → Speech"]
         Speaker["🔊 Speaker"]
         Mic --> VAD --> STT --> JP --> TTS --> Speaker
@@ -143,8 +143,8 @@ flowchart TD
     end
 
     subgraph PERSISTENCE ["💾 Persistence — local files"]
-        PROF["~/.jarvis_profile.json\nUserProfile\nname · timezone · skills\ngoals · tech stack"]
-        AUTH_FILE["~/.jarvis_auth.json\nSHA-256 + salt hash\nfailed attempts\nlockout timestamp"]
+        PROF["~/.clawspan_profile.json\nUserProfile\nname · timezone · skills\ngoals · tech stack"]
+        AUTH_FILE["~/.clawspan_auth.json\nSHA-256 + salt hash\nfailed attempts\nlockout timestamp"]
         MEM_DIR["~/.mempalace/\npalace/ ChromaDB\nknowledge_graph.sqlite3\nidentity.txt"]
     end
 
@@ -198,7 +198,7 @@ flowchart TD
 
 Frameworks like LangChain, AutoGen, and CrewAI are powerful for demos. For a real-time voice assistant they introduce problems that are hard to paper over:
 
-| | Framework | JARVIS |
+| | Framework | Clawspan |
 |---|---|---|
 | **Latency** | 100–300 ms of abstraction overhead per hop | Direct async Python — zero middleware |
 | **Tool shape** | Framework normalises arguments, you lose control | Raw OpenAI function schemas, you define everything |
@@ -212,14 +212,14 @@ Frameworks like LangChain, AutoGen, and CrewAI are powerful for demos. For a rea
 
 ---
 
-## How JARVIS Learns From You
+## How Clawspan Learns From You
 
-Every conversation makes JARVIS smarter about you. Here's the exact flow:
+Every conversation makes Clawspan smarter about you. Here's the exact flow:
 
 ```mermaid
 sequenceDiagram
     participant U as 👤 User
-    participant JP as JarvisProcessor
+    participant JP as ClawspanProcessor
     participant BA as BaseAgent
     participant FE as FactExtractor
     participant MP as MemPalace
@@ -228,7 +228,7 @@ sequenceDiagram
     JP->>BA: route + think()
     BA->>BA: LLM generates reply
     BA-->>JP: spoken response
-    JP-->>U: 🔊 JARVIS speaks
+    JP-->>U: 🔊 Clawspan speaks
 
     Note over BA,FE: fire_and_forget() — non-blocking
     BA->>FE: user_text + assistant_reply (async task)
@@ -246,13 +246,13 @@ sequenceDiagram
     JP->>BA: system prompt includes all learned facts
 ```
 
-Facts are tagged into four wings: `personal` (who you are), `project` (what you're building), `preference` (how you want JARVIS to behave), `reference` (external systems you use). They persist across restarts, update in place, and are deduplicated by semantic similarity.
+Facts are tagged into four wings: `personal` (who you are), `project` (what you're building), `preference` (how you want Clawspan to behave), `reference` (external systems you use). They persist across restarts, update in place, and are deduplicated by semantic similarity.
 
 ---
 
 ## Security Gate
 
-Before any agent runs, JARVIS requires authentication.
+Before any agent runs, Clawspan requires authentication.
 
 ```mermaid
 flowchart LR
@@ -264,12 +264,12 @@ flowchart LR
     Hash -->|"match"| Access["✅ Access granted\nAwarenessLoop starts\nMemPalace loads\nAgents ready"]
     Hash -->|"no match"| Counter{"attempts\n< 3?"}
     Counter -->|"yes"| EnterPW
-    Counter -->|"no"| Lockout["🔒 60s lockout\nstored in\n~/.jarvis_auth.json"]
+    Counter -->|"no"| Lockout["🔒 60s lockout\nstored in\n~/.clawspan_auth.json"]
     Lockout --> EnterPW
     Onboard --> SetPW["Set passphrase\n+ confirm"] --> Access
 ```
 
-Password is stored as SHA-256 + random 16-byte salt in `~/.jarvis_auth.json`. Plaintext is never stored or logged. The normalizer handles voice STT quirks — spelled-out numbers ("iron man mark fifty"), punctuation, extra whitespace — so the same passphrase works whether typed or spoken.
+Password is stored as SHA-256 + random 16-byte salt in `~/.clawspan_auth.json`. Plaintext is never stored or logged. The normalizer handles voice STT quirks — spelled-out numbers ("iron man mark fifty"), punctuation, extra whitespace — so the same passphrase works whether typed or spoken.
 
 ---
 
@@ -398,7 +398,7 @@ Agents can delegate sub-tasks to each other through the router (max depth 3 to p
 
 ## Why It's Fast
 
-| Bottleneck | Typical framework | JARVIS |
+| Bottleneck | Typical framework | Clawspan |
 |---|---|---|
 | Intent routing | LLM call every time ~300-500ms | Keyword score ~0ms for 80% of requests |
 | Tool dispatch | Serialised through framework abstractions | Direct Python function call |
@@ -431,7 +431,7 @@ Agents can delegate sub-tasks to each other through the router (max depth 3 to p
 |---|---|
 | "Show my repos" | Lists your GitHub repos with descriptions |
 | "What should I work on in jarvis" | `repo_insights` — risk scan, open issues, stale PRs |
-| "Create an issue in jarvis about the auth bug" | Creates issue with title and body |
+| "Create an issue in clawspan about the auth bug" | Creates issue with title and body |
 | "Track langchain-ai/langchain" | Adds to tracked repos, monitors releases |
 | "Any updates from tracked repos" | Checks all tracked for new releases |
 | "Search code for BaseAgent" | GitHub code search across all repos |
@@ -469,7 +469,7 @@ Agents can delegate sub-tasks to each other through the router (max depth 3 to p
 ## Voice UX Design
 
 ### Sequential tool dispatch
-Tools run one at a time. If you ask JARVIS to "research Raga AI and write a doc":
+Tools run one at a time. If you ask Clawspan to "research Raga AI and write a doc":
 
 1. **Confirms:** "Want me to research Raga AI and save a doc, boss?"
 2. **Announces:** "Drafting the doc now." — spoken immediately while the heavy tool runs in background
@@ -487,23 +487,23 @@ _HEAVY_TOOLS = frozenset({
 Heavy tools get a spoken progress ACK before they run and a full LLM summarisation after. Light tools (web search, terminal, clipboard) get a single-sentence confirmation.
 
 ### Echo suppression
-`PostSpeechMuteStrategy` keeps the mic muted for 800 ms after JARVIS stops speaking, preventing JARVIS from hearing its own TTS output and responding to itself.
+`PostSpeechMuteStrategy` keeps the mic muted for 800 ms after Clawspan stops speaking, preventing Clawspan from hearing its own TTS output and responding to itself.
 
 ---
 
 ## Project Structure
 
 ```
-jarvis/
+clawspan/
 │
 ├── main.py                     Entry — --text for terminal, default for voice
-├── jarvis_pipeline.py          Thin shim → voice/pipeline.py
-├── jarvis_tools.py             Thin shim → tools/voice_tools/
+├── clawspan_pipeline.py          Thin shim → voice/pipeline.py
+├── clawspan_tools.py             Thin shim → tools/voice_tools/
 ├── config.py                   API keys from .env
-├── wake_word.py                "Hey Jarvis" (OpenWakeWord + ONNX)
+├── wake_word.py                "Hey Clawspan" (OpenWakeWord + ONNX)
 │
 ├── voice/                      Voice pipeline (Pipecat transport only)
-│   ├── pipeline.py             JarvisProcessor + run_pipeline()
+│   ├── pipeline.py             ClawspanProcessor + run_pipeline()
 │   ├── system_prompt.py        SYSTEM_PROMPT + dynamic prompt builder per turn
 │   ├── auth_gate.py            Passphrase gate
 │   ├── mute_strategies.py      PostSpeechMuteStrategy
@@ -569,7 +569,7 @@ jarvis/
 | Voice transport | Pipecat | Mic/speaker streaming, VAD, turn management — **voice I/O only** |
 | Speech-to-text | Deepgram nova-2 | High-accuracy STT with smart formatting |
 | Text-to-speech | Cartesia Sonic | Ultra-low-latency neural TTS |
-| Wake word | OpenWakeWord (ONNX) | Local "Hey Jarvis" detection |
+| Wake word | OpenWakeWord (ONNX) | Local "Hey Clawspan" detection |
 | LLM — voice pipeline | OpenAI gpt-4o | Low-latency voice turns |
 | LLM — all agents | DeepSeek V3 | Fast, cheap domain agent reasoning |
 | LLM — fact extraction | OpenAI gpt-4o-mini | ~$0.0001/turn background extraction |
@@ -608,13 +608,13 @@ Optional:
 | Key | Purpose |
 |---|---|
 | `DEEPSEEK_API_KEY` | All domain agents (falls back to OpenAI if unset) |
-| `CARTESIA_VOICE_ID` | Override the default British JARVIS voice |
+| `CARTESIA_VOICE_ID` | Override the default British Clawspan voice |
 
 ### Install
 
 ```bash
-git clone https://github.com/akkupratap323/jarvis
-cd jarvis
+git clone https://github.com/akkupratap323/clawspan
+cd clawspan
 python3.11 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
@@ -636,7 +636,7 @@ GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 DEEPSEEK_API_KEY=           # optional
 CARTESIA_VOICE_ID=          # optional
-JARVIS_SKIP_AUTH=1          # skip passphrase gate during development
+Clawspan_SKIP_AUTH=1          # skip passphrase gate during development
 ```
 
 ---
