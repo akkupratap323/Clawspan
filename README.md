@@ -655,7 +655,7 @@ Clawspan_SKIP_AUTH=1          # skip passphrase gate during development
 
 Active development. Voice pipeline, BrainRouter, MemPalace, and all tool integrations are working. Open-sourcing in progress.
 
-Built by [@akkupratap323](https://github.com/akkupratap323) at Nester Labs.
+Built by [@akkupratap323](https://github.com/akkupratap323).
 
 ---
 
