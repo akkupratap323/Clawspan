@@ -551,7 +551,7 @@ async def run_pipeline() -> None:
             ),
             user_mute_strategies=[
                 MuteUntilFirstBotCompleteUserMuteStrategy(),
-                PostSpeechMuteStrategy(post_speech_secs=0.3),  # was 1.0 — can talk sooner after bot speaks
+                PostSpeechMuteStrategy(post_speech_secs=1.5),  # keep mic muted until speaker audio tail clears
             ],
             user_turn_strategies=UserTurnStrategies(
                 start=[
