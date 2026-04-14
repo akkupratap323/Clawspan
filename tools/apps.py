@@ -56,15 +56,20 @@ def open_app(app_name: str) -> str:
     resolved = _ALIASES.get(app_name.lower(), app_name)
 
     def _try_open(name: str) -> bool:
+        """Try to open the app by name. Returns True only if macOS confirms success.
+
+        Uses subprocess.run with a short timeout so we can check the return code.
+        `open -a` exits 0 on success (app launched or already running) and 1 when
+        the app is not found — this is fast (<200ms) regardless of app state.
+        """
         try:
-            # -g: don't bring to foreground (keeps voice pipeline active)
-            # Popen: fire-and-forget — never blocks
-            subprocess.Popen(
+            r = subprocess.run(
                 ["open", "-a", name],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
+                timeout=3,
             )
-            return True
+            return r.returncode == 0
         except Exception:
             return False
 
@@ -74,17 +79,18 @@ def open_app(app_name: str) -> str:
     if resolved != app_name and _try_open(app_name):
         return f"Opened {app_name}."
 
-    # Spotlight fallback
+    # Spotlight fallback — search case/diacritic-insensitively
     result = subprocess.run(
         ["mdfind", "-onlyin", "/Applications", f"kMDItemDisplayName == '{resolved}'cdw"],
         capture_output=True, text=True, timeout=5,
     )
     path = result.stdout.strip().split("\n")[0]
     if path:
-        subprocess.Popen(
+        subprocess.run(
             ["open", path],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            timeout=3,
         )
         return f"Opened {resolved}."
 
