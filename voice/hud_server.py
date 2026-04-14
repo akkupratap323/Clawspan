@@ -17,7 +17,7 @@ from typing import Any
 
 import websockets
 
-logging.getLogger("websockets").setLevel(logging.ERROR)
+logging.getLogger("websockets").setLevel(logging.CRITICAL)
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +31,8 @@ async def _handler(ws) -> None:
     try:
         await ws.send(json.dumps({"type": "connected"}))
         await ws.wait_closed()
+    except Exception:
+        pass
     finally:
         _clients.discard(ws)
 
@@ -51,6 +53,14 @@ async def start_hud_server(host: str = "localhost", port: int = 7788) -> None:
     global _server
     if _server is not None:
         return
+
+    # Silence the websockets library completely — Electron/Chromium sends
+    # plain HTTP health-check probes before upgrading to WebSocket, which
+    # would otherwise flood stderr with 'InvalidMessage' tracebacks.
+    for name in ("websockets", "websockets.server", "websockets.asyncio.server"):
+        logging.getLogger(name).setLevel(logging.CRITICAL)
+        logging.getLogger(name).propagate = False
+
     _server = await websockets.serve(_handler, host, port, logger=None)
     logger.info("HUD WebSocket server started on ws://%s:%d", host, port)
 

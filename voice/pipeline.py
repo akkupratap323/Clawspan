@@ -17,8 +17,18 @@ import json
 import random
 import re
 
+import logging as _logging
+
 from loguru import logger
 from openai import AsyncOpenAI
+
+# Loguru intercepts stdlib logging and re-emits to stderr. Silence the
+# websockets library before it can generate 'InvalidMessage' noise from
+# Electron's HTTP health-check probes hitting the HUD WebSocket server.
+for _ws_logger in ("websockets", "websockets.server", "websockets.asyncio.server",
+                   "websockets.asyncio.connection"):
+    _logging.getLogger(_ws_logger).setLevel(_logging.CRITICAL)
+    _logging.getLogger(_ws_logger).propagate = False
 
 from pipecat.audio.vad.silero import SileroVADAnalyzer
 from pipecat.audio.vad.vad_analyzer import VADParams
