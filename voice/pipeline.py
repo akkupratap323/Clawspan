@@ -45,7 +45,8 @@ from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.services.cartesia.tts import CartesiaTTSService, CartesiaTTSSettings
 from pipecat.services.deepgram.stt import DeepgramSTTService, DeepgramSTTSettings
 from pipecat.services.tts_service import TextAggregationMode
-from pipecat.transports.local.audio import LocalAudioTransport, LocalAudioTransportParams
+from pipecat.transports.local.audio import LocalAudioTransportParams
+from tools.aec_transport import build_audio_transport
 from pipecat.turns.user_mute.mute_until_first_bot_complete_user_mute_strategy import (
     MuteUntilFirstBotCompleteUserMuteStrategy,
 )
@@ -523,13 +524,10 @@ async def run_pipeline() -> None:
         text_aggregation_mode=TextAggregationMode.TOKEN,
     )
 
-    transport = LocalAudioTransport(
+    transport = build_audio_transport(
         LocalAudioTransportParams(
             audio_in_enabled=True,
             audio_out_enabled=True,
-            # Let pyaudio pick the system default output device. A hardcoded
-            # index here previously failed with "Invalid number of channels"
-            # when macOS reassigned device indices or a new device appeared.
             audio_out_sample_rate=24000,
         )
     )
