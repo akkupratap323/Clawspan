@@ -139,6 +139,10 @@ class BaseAgent:
         SYSTEM_PROMPT: str                        — agent-specific instructions
         TOOLS:       list[dict]                   — OpenAI function schemas
         TOOL_MAP:    dict[str, Callable[[dict], str]]  — name → executor
+
+    Optional constructor params:
+        llm_client:  AsyncOpenAI-compatible client override (e.g. DeepSeek)
+        llm_model:   model name override (e.g. "deepseek-chat")
     """
 
     name: str = "BaseAgent"
@@ -156,10 +160,16 @@ class BaseAgent:
         self,
         context: SessionContext | None = None,
         profile: UserProfile | None = None,
+        llm_client=None,
+        llm_model: str | None = None,
     ) -> None:
         self._context = context
         self._profile = profile
         self._router = None
+        # Allow subclasses to inject a custom LLM client (e.g. DeepSeek endpoint)
+        # without duplicating the entire tool-calling loop.
+        self._llm_client = llm_client   # None → falls back to core.llm.get_client()
+        self._llm_model = llm_model     # None → falls back to core.llm.get_model()
 
         # Static base: personality + agent instructions + rules (no memory yet)
         # Memory is injected fresh on every think() call
@@ -211,8 +221,10 @@ class BaseAgent:
     async def _call_llm(
         self, *, with_tools: bool = True, max_tokens: int | None = None,
     ):
+        client = self._llm_client if self._llm_client is not None else get_client()
+        model = self._llm_model if self._llm_model is not None else get_model()
         kwargs: dict[str, Any] = {
-            "model": get_model(),
+            "model": model,
             "messages": self._conversation,
             "max_tokens": max_tokens or self.max_tokens,
             "temperature": self.temperature,
@@ -221,7 +233,7 @@ class BaseAgent:
             kwargs["tools"] = self.TOOLS
             kwargs["tool_choice"] = "auto"
         try:
-            return await get_client().chat.completions.create(**kwargs)
+            return await client.chat.completions.create(**kwargs)
         except Exception:
             if with_tools:
                 return await self._call_llm(with_tools=False, max_tokens=max_tokens)

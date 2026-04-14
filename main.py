@@ -24,8 +24,7 @@ async def run_text() -> None:
     from agents.research_agent import ResearchAgent
     from agents.writer_agent import WriterAgent
     from agents.calendar_agent import CalendarAgent
-    from agents.coding_agent import CodingAgent
-    from agents.deepcoder_agent import CodingAgent as DeepCoderAgent
+    from agents.deepcoder_agent import DeepCoderAgent
     from agents.deploy_monitor_agent import DeployMonitorAgent
     from agents.github_monitor_agent import GitHubMonitorAgent
     from agents.github_action_agent import GitHubActionAgent
@@ -110,7 +109,7 @@ async def run_text() -> None:
         "research": ResearchAgent(),
         "writer": WriterAgent(),
         "calendar": CalendarAgent(notification_queue=notification_queue),
-        "coding": CodingAgent(),
+        "coding": DeepCoderAgent(),
         "deepcoder": DeepCoderAgent(),
         "deploy": DeployMonitorAgent(context=context, profile=profile),
     }
