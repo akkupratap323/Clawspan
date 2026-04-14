@@ -17,6 +17,15 @@ CAPABILITIES:
 """
 
 from core.base_agent import BaseAgent
+from tools.hunter import (
+    discover,
+    domain_search,
+    email_finder,
+    email_verifier,
+    company_enrichment,
+    person_enrichment,
+    combined_enrichment,
+)
 from tools.search import tavily_search, duckduckgo_search, fetch_url
 from tools.research import (
     deep_research,
@@ -76,6 +85,22 @@ SYSTEM_PROMPT = """You are Clawspan's Deep Research Agent — a world-class rese
 
 🧠 MEMORY (memory_tool):
   Save research findings and recall past research.
+
+📧 HUNTER.IO EMAIL INTELLIGENCE:
+  You have full access to Hunter.io. Use it when boss wants to find, verify,
+  or enrich email contacts. After finding emails, you can draft outreach and
+  send via Gmail (gmail tool) — always ask approval before sending.
+
+  hunter_discover(domain)                → find people at a company
+  hunter_domain_search(domain)           → list all known emails for a domain
+  hunter_email_finder(domain, first, last) → find one person's exact email
+  hunter_email_verifier(email)           → check if email is deliverable
+  hunter_company_enrichment(domain)      → full company profile (industry, size, tech)
+  hunter_person_enrichment(email)        → full person profile (title, LinkedIn, phone)
+  hunter_combined_enrichment(email)      → person + company in one call
+
+  Workflow: find email → verify it → enrich person/company → draft email → show boss → send on approval.
+  NEVER send an email without boss explicitly saying "yes, send it" or "send".
 
 ══ RESEARCH METHODOLOGY ═══════════════════════════════════════════════════
 
@@ -332,6 +357,131 @@ TOOLS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "hunter_discover",
+            "description": (
+                "Find people (name + email + title) listed for a company domain via Hunter.io. "
+                "Use when boss says 'find people at X', 'who works at X', 'find contacts at X.com'."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "domain": {"type": "string", "description": "Company domain, e.g. 'stripe.com'"},
+                },
+                "required": ["domain"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "hunter_domain_search",
+            "description": (
+                "List all known email addresses for a domain via Hunter.io. "
+                "Use for 'find all emails at X', 'email list for domain X'."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "domain": {"type": "string", "description": "Domain to search"},
+                    "limit": {"type": "integer", "description": "Max results (default 10)"},
+                },
+                "required": ["domain"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "hunter_email_finder",
+            "description": (
+                "Find a specific person's email address by name and company domain. "
+                "Use for 'find email of John Smith at stripe.com', 'what is X's email at Y'."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "domain": {"type": "string", "description": "Company domain"},
+                    "first_name": {"type": "string", "description": "Person's first name"},
+                    "last_name": {"type": "string", "description": "Person's last name"},
+                },
+                "required": ["domain", "first_name", "last_name"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "hunter_email_verifier",
+            "description": (
+                "Verify if an email address is valid and deliverable. "
+                "Use before sending any email, or when boss says 'check if this email works', "
+                "'verify email X', 'is X@Y.com a real email'."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "email": {"type": "string", "description": "Email address to verify"},
+                },
+                "required": ["email"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "hunter_company_enrichment",
+            "description": (
+                "Get full company profile from a domain: industry, size, location, "
+                "technologies, social links. Use for 'enrich company X', "
+                "'what tech does X use', 'tell me about X company'."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "domain": {"type": "string", "description": "Company domain, e.g. 'stripe.com'"},
+                },
+                "required": ["domain"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "hunter_person_enrichment",
+            "description": (
+                "Get full profile for a person from their email: title, seniority, "
+                "LinkedIn, phone, company. Use for 'who is X@Y.com', "
+                "'enrich this contact', 'find LinkedIn for email X'."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "email": {"type": "string", "description": "Person's email address"},
+                },
+                "required": ["email"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "hunter_combined_enrichment",
+            "description": (
+                "Get person + company profile together from a single email address. "
+                "Best single call to fully understand a contact before outreach."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "email": {"type": "string", "description": "Email address to enrich"},
+                },
+                "required": ["email"],
+            },
+        },
+    },
 ]
 
 
@@ -416,6 +566,34 @@ def _memory_tool(args: dict) -> str:
     if action == "forget":
         return mem_tool.forget(args.get("key", ""))
     return f"Unknown memory action: {action}"
+
+
+def _hunter_discover(args: dict) -> str:
+    return discover(args["domain"])
+
+
+def _hunter_domain_search(args: dict) -> str:
+    return domain_search(args["domain"], args.get("limit", 10))
+
+
+def _hunter_email_finder(args: dict) -> str:
+    return email_finder(args["domain"], args["first_name"], args["last_name"])
+
+
+def _hunter_email_verifier(args: dict) -> str:
+    return email_verifier(args["email"])
+
+
+def _hunter_company_enrichment(args: dict) -> str:
+    return company_enrichment(args["domain"])
+
+
+def _hunter_person_enrichment(args: dict) -> str:
+    return person_enrichment(args["email"])
+
+
+def _hunter_combined_enrichment(args: dict) -> str:
+    return combined_enrichment(args["email"])
 
 
 # ── Result Formatters ────────────────────────────────────────────────────────
@@ -537,6 +715,13 @@ class ResearchAgent(BaseAgent):
         "web_search": _web_search,
         "read_file": _read_file,
         "memory_tool": _memory_tool,
+        "hunter_discover": _hunter_discover,
+        "hunter_domain_search": _hunter_domain_search,
+        "hunter_email_finder": _hunter_email_finder,
+        "hunter_email_verifier": _hunter_email_verifier,
+        "hunter_company_enrichment": _hunter_company_enrichment,
+        "hunter_person_enrichment": _hunter_person_enrichment,
+        "hunter_combined_enrichment": _hunter_combined_enrichment,
     }
     temperature = 0.3
     max_tokens = 4096  # Large output for research reports

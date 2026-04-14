@@ -25,6 +25,10 @@ OPENAI_API_KEY      = os.getenv("OPENAI_API_KEY", "")
 DEEPSEEK_MODEL    = "deepseek-chat"
 DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 
+# ─── Hunter.io (email intelligence) ──────────────────────────────────────────
+
+HUNTER_API_KEY = os.getenv("HUNTER_API_KEY", "")
+
 # ─── Cartesia Voice ──────────────────────────────────────────────────────────
 
 CARTESIA_VOICE_ID = os.getenv(
@@ -36,7 +40,7 @@ CARTESIA_VOICE_ID = os.getenv(
 # Set these via environment variables or .env — never hardcode in source.
 
 AWS_ACCOUNT_ID          = os.getenv("AWS_ACCOUNT_ID", "")
-AWS_DEFAULT_REGION      = os.getenv("AWS_DEFAULT_REGION", "ap-south-1")
+AWS_DEFAULT_REGION      = os.getenv("AWS_DEFAULT_REGION", "")
 AWS_LIGHTSAIL_INSTANCE  = os.getenv("AWS_LIGHTSAIL_INSTANCE", "")
 AWS_LIGHTSAIL_IP        = os.getenv("AWS_LIGHTSAIL_IP", "")
 
