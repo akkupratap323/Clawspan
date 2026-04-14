@@ -545,7 +545,7 @@ async def run_pipeline() -> None:
                 params=VADParams(
                     confidence=0.6,    # was 0.7 — less strict, catches softer speech
                     start_secs=0.2,
-                    stop_secs=0.8,     # was 0.4 — needs 0.8s silence before VAD says stopped
+                    stop_secs=0.5,     # 0.5s silence → VAD says stopped
                     min_volume=0.5,    # was 0.6 — don't drop quieter speech
                 )
             ),
@@ -562,7 +562,7 @@ async def run_pipeline() -> None:
                     # TurnAnalyzerUserTurnStopStrategy removed — SmartTurn fires too early on
                     # mid-sentence pauses, cutting turns after ~2s even when user is still speaking.
                     # SpeechTimeout alone is more predictable for conversational voice.
-                    SpeechTimeoutUserTurnStopStrategy(user_speech_timeout=3.0),  # was 2.5 — full 3s pause = done
+                    SpeechTimeoutUserTurnStopStrategy(user_speech_timeout=1.2),  # 1.2s after VAD stops = fire turn
                 ],
             ),
         ),
