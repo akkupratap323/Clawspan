@@ -197,6 +197,9 @@ def save_fact(key: str, value: str, wing: str = "personal",
              now.strftime("%Y-%m-%d"), 1.0, drawer_id),
         )
 
+    # Invalidate the memory context cache so the next think() sees this fact
+    _MEM_CTX_CACHE.clear()
+
     return drawer_id
 
 
@@ -231,6 +234,8 @@ def search_facts(query: str, n_results: int = 5,
 
     hits = []
     for doc, meta, dist in zip(docs, metas, dists):
+        if meta is None:
+            meta = {}
         hits.append({
             "text": doc,
             "key": meta.get("key", ""),
@@ -470,6 +475,13 @@ def set_identity(text: str) -> None:
 
 # ── Context Builders (for agent system prompts) ─────────────────────────────
 
+# Simple in-process cache: keyed by (query_hint_prefix, fact_count)
+# Avoids re-embedding the same query twice in rapid succession
+import time as _time
+_MEM_CTX_CACHE: dict[str, tuple[float, str]] = {}  # key → (timestamp, result)
+_MEM_CTX_TTL = 30  # seconds — refresh facts at most once per 30s per query
+
+
 def build_memory_context(query_hint: str = "") -> str:
     """Build memory context for injection into agent system prompts.
 
@@ -477,7 +489,15 @@ def build_memory_context(query_hint: str = "") -> str:
     - L0: Identity (always loaded, ~100 tokens)
     - L1: Top memories by importance (~500 tokens)
     - L2: Query-relevant memories if hint provided (~200 tokens)
+
+    Results are cached for 30 seconds to avoid re-embedding on every turn.
     """
+    cache_key = query_hint[:80].lower().strip()
+    now = _time.monotonic()
+    cached = _MEM_CTX_CACHE.get(cache_key)
+    if cached and (now - cached[0]) < _MEM_CTX_TTL:
+        return cached[1]
+
     parts = []
 
     # L0: Identity
@@ -541,7 +561,9 @@ def build_memory_context(query_hint: str = "") -> str:
     except Exception:
         pass
 
-    return "\n\n" + "\n\n".join(parts) if parts else ""
+    result = "\n\n" + "\n\n".join(parts) if parts else ""
+    _MEM_CTX_CACHE[cache_key] = (now, result)
+    return result
 
 
 def build_session_context() -> str:

@@ -11,7 +11,8 @@ from tools.search import tavily_search
 from tools.files import read_file, write_file
 from tools.terminal import run as run_terminal
 
-CLAWSPAN_DIR = os.path.expanduser("~/Downloads/jarvis")
+# Root of the project — resolves correctly regardless of where it's installed
+CLAWSPAN_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 SYSTEM_PROMPT = """You handle coding tasks, scripts, GitHub, file operations, and deep research.
 

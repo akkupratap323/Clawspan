@@ -48,17 +48,22 @@ def exec_writer_create(action: str, title: str = "", content: str = "",
         company = (content or _infer_company_from_title(title)).strip()
         if not company:
             return "writer_create: need a company name in title or content."
-        from tools.voice_tools.research import exec_research_company
-        research_md = exec_research_company(company_name=company)
-        data = {"company": company, "executive_summary": research_md, "sections": {}}
+        from tools.research import research_company as _raw_research_company
+        data = _raw_research_company(company, include_financials=True,
+                                     include_news=True, include_competitors=True)
+        data["company"] = company
+        if not data.get("executive_summary"):
+            data["executive_summary"] = f"Research on {company}."
         formatted = _writer_company(data, title=title or f"{company} Company Research")
     elif action == "market_analysis":
         subject = (content or _infer_company_from_title(title)).strip()
         if not subject:
             return "writer_create: need a market/topic in title or content."
-        from tools.voice_tools.research import exec_market_research
-        research_md = exec_market_research(ticker_or_company=subject)
-        data = {"subject": subject, "executive_summary": research_md, "sections": {}}
+        from tools.research import market_research as _raw_market_research
+        data = _raw_market_research(subject, include_competitors=True, include_trends=True)
+        data["subject"] = subject
+        if not data.get("executive_summary"):
+            data["executive_summary"] = f"Market research on {subject}."
         formatted = _writer_market(data, title=title or f"{subject} Market Analysis")
     elif action == "meeting_prep":
         data = {"sections": {}}
@@ -72,7 +77,26 @@ def exec_writer_create(action: str, title: str = "", content: str = "",
     subfolder = {"company_research": "report", "market_analysis": "report",
                  "meeting_prep": "meeting", "technical": "technical"}.get(action, "default")
     filepath = _writer_save(formatted, title or "Document", doc_type=subfolder)
-    return f"Created and saved to:\n{filepath}"
+
+    # Auto-export to DOCX and open it
+    open_path = filepath
+    if action in ("company_research", "market_analysis"):
+        try:
+            export_result = _writer_export(filepath, "docx")
+            # _writer_export returns "DOCX saved: /path/to/file.docx"
+            if export_result.startswith("DOCX saved:"):
+                open_path = export_result.replace("DOCX saved:", "").strip()
+        except Exception:
+            pass
+
+    # Auto-open the file on macOS
+    try:
+        import subprocess
+        subprocess.Popen(["open", open_path])
+    except Exception:
+        pass
+
+    return f"Created and saved to:\n{open_path}"
 
 
 def exec_writer_export(file_path: str, format: str, **_kw) -> str:

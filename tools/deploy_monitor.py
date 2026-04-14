@@ -16,7 +16,7 @@ import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field, asdict
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from typing import Any
 
 # ── Tracked services persistence ─────────────────────────────────────────────
@@ -740,11 +740,11 @@ def aws_status(region: str = "") -> dict:
         results["issues"].append(f"boto3 error: {e} — falling back to AWS CLI")
 
     # ── Fallback: AWS CLI ───────────────────────────────────────────────
-    region_flag = f" --region {region}" if region else ""
-
     try:
-        ls_cmd = f"aws lightsail get-instances{region_flag} --output json"
-        ls_result = subprocess.run(ls_cmd, shell=True, capture_output=True, text=True, timeout=30)
+        ls_args = ["aws", "lightsail", "get-instances", "--output", "json"]
+        if region:
+            ls_args += ["--region", region]
+        ls_result = subprocess.run(ls_args, shell=False, capture_output=True, text=True, timeout=30)
         if ls_result.returncode == 0:
             data = json.loads(ls_result.stdout) if ls_result.stdout.strip() else {}
             for inst in data.get("instances", []):
@@ -775,20 +775,27 @@ def aws_status(region: str = "") -> dict:
 def _get_lightsail_cpu_metrics(instance_name: str, region: str) -> dict:
     """Fetch 24h CPU utilization from CloudWatch for a Lightsail instance."""
     try:
-        region_flag = f" --region {region}" if region else ""
-        # Average CPU over 24 hours
-        avg_cmd = (
-            f'aws lightsail get-instance-metric-data{region_flag}'
-            f' --instance-name "{instance_name}"'
-            " --metric-name CPUUtilization"
-            " --unit Percent"
-            " --period 3600"
-            " --start-time $(date -v-24H +%s 2>/dev/null || date -d '24 hours ago' +%s)"
-            " --end-time $(date +%s)"
-            " --statistics Average"
-            " --output json"
-        )
-        avg_result = subprocess.run(avg_cmd, shell=True, capture_output=True, text=True, timeout=20)
+        now = datetime.now(timezone.utc)
+        start = now - timedelta(hours=24)
+        # ISO 8601 strings that AWS CLI accepts
+        start_str = start.strftime("%Y-%m-%dT%H:%M:%SZ")
+        end_str = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        avg_args = [
+            "aws", "lightsail", "get-instance-metric-data",
+            "--instance-name", instance_name,
+            "--metric-name", "CPUUtilization",
+            "--unit", "Percent",
+            "--period", "3600",
+            "--start-time", start_str,
+            "--end-time", end_str,
+            "--statistics", "Average",
+            "--output", "json",
+        ]
+        if region:
+            avg_args += ["--region", region]
+
+        avg_result = subprocess.run(avg_args, shell=False, capture_output=True, text=True, timeout=20)
         if avg_result.returncode == 0:
             data = json.loads(avg_result.stdout)
             points = data.get("metricData", [])

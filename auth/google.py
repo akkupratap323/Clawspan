@@ -52,7 +52,12 @@ def get_credentials() -> Credentials:
             creds.refresh(Request())
         else:
             flow = InstalledAppFlow.from_client_config(_CLIENT_CONFIG, SCOPES)
-            creds = flow.run_local_server(port=8080, open_browser=True)
+            creds = flow.run_local_server(
+                port=8080,
+                open_browser=True,
+                access_type="offline",   # ensures refresh_token is returned
+                prompt="consent",        # forces re-consent so refresh_token isn't skipped
+            )
 
         with open(GOOGLE_TOKEN_FILE, "w") as f:
             json.dump({

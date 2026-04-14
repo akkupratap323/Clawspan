@@ -456,12 +456,6 @@ async def run_pipeline() -> None:
 
     play_sound("activated")
 
-    from wake_word import WakeWordDetector
-
-    detector = WakeWordDetector(threshold=0.5)
-    loop = asyncio.get_event_loop()
-    await loop.run_in_executor(None, detector.wait_for_wake_word)
-
     from core.onboarding import build_voice_onboarding_prompt, needs_onboarding
 
     _needs_onboarding = needs_onboarding()

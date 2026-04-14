@@ -15,7 +15,7 @@ from typing import Any
 PROFILE_PATH = os.path.expanduser("~/.clawspan_profile.json")
 
 DEFAULT_PROFILE = {
-    "name": "sir",
+    "name": "Aditya",
     "timezone": "Asia/Kolkata",
     "wake_time": "07:00",
     "work_hours": {"start": "09:00", "end": "18:00"},
@@ -29,7 +29,7 @@ DEFAULT_PROFILE = {
 
 @dataclass
 class UserProfile:
-    name: str = "sir"
+    name: str = "Aditya"
     timezone: str = "Asia/Kolkata"
     wake_time: str = "07:00"
     work_hours: dict = field(default_factory=lambda: {"start": "09:00", "end": "18:00"})

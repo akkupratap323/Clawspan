@@ -25,7 +25,7 @@ async def run_text() -> None:
     from agents.writer_agent import WriterAgent
     from agents.calendar_agent import CalendarAgent
     from agents.coding_agent import CodingAgent
-    from agents.claude_agent import ClaudeAgent
+    from agents.deepcoder_agent import CodingAgent as DeepCoderAgent
     from agents.deploy_monitor_agent import DeployMonitorAgent
     from agents.github_monitor_agent import GitHubMonitorAgent
     from agents.github_action_agent import GitHubActionAgent
@@ -76,6 +76,16 @@ async def run_text() -> None:
         except (EOFError, KeyboardInterrupt):
             pass
 
+    # Google OAuth — trigger on first run so browser opens before conversation starts
+    from config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+    if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET:
+        try:
+            from auth.google import get_credentials
+            await asyncio.to_thread(get_credentials)
+            print("[Auth] Google credentials ready.", flush=True)
+        except Exception as _google_err:
+            print(f"[Auth] Google auth skipped: {_google_err}", flush=True)
+
     # First-run onboarding — ask personal details
     if needs_onboarding():
         profile = await run_text_onboarding()
@@ -99,9 +109,9 @@ async def run_text() -> None:
         "system": SystemAgent(),
         "research": ResearchAgent(),
         "writer": WriterAgent(),
-        "calendar": CalendarAgent(),
+        "calendar": CalendarAgent(notification_queue=notification_queue),
         "coding": CodingAgent(),
-        "claude": ClaudeAgent(),
+        "deepcoder": DeepCoderAgent(),
         "deploy": DeployMonitorAgent(context=context, profile=profile),
     }
     brain = BrainRouter(

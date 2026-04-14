@@ -31,7 +31,7 @@ QUESTIONS = [
     # ── Basic identity (original 5) ─────────────────────────────────────
     (
         "name",
-        "What should I call you, sir?",
+        "Hey boss — what should I call you?",
         "Just your first name or nickname is fine.",
     ),
     (
@@ -100,20 +100,7 @@ QUESTIONS = [
 
 def needs_onboarding() -> bool:
     """Check if this is a first run (no onboarding done yet)."""
-    if os.path.exists(ONBOARDING_MARKER):
-        return False
-    # Also check if profile already exists with a real name
-    if os.path.exists(PROFILE_PATH):
-        try:
-            with open(PROFILE_PATH) as f:
-                data = json.load(f)
-            if data.get("name", "sir") != "sir":
-                # Profile already set up — mark as onboarded
-                _mark_onboarded()
-                return False
-        except Exception:
-            pass
-    return True
+    return not os.path.exists(ONBOARDING_MARKER)
 
 
 def _mark_onboarded() -> None:
@@ -135,7 +122,7 @@ def process_onboarding_answers(answers: dict[str, str]) -> UserProfile:
     Returns:
         The configured UserProfile.
     """
-    name = answers.get("name", "sir").strip() or "sir"
+    name = answers.get("name", "").strip() or "boss"
     work = answers.get("work", "").strip()
     people_raw = answers.get("people", "").strip()
     style_raw = answers.get("style", "casual").strip().lower()
@@ -238,7 +225,7 @@ def process_onboarding_answers(answers: dict[str, str]) -> UserProfile:
 
     identity = (
         f"I am Clawspan, a personal AI assistant for {name}.\n"
-        f"Running on macOS. Casual, warm, witty. Uses 'sir' occasionally.\n"
+        f"Running on macOS. Casual, warm, witty. Always address {name} as 'boss'.\n"
         f"Communication style: {style}.{work_str}{people_str}{notes_str}\n"
         f"I remember everything and learn from every conversation."
     )

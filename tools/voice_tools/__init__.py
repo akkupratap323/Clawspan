@@ -224,16 +224,49 @@ TOOLS: list[dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "gmail",
-            "description": "Gmail. Actions: read, search, send, mark_read.",
-            "parameters": {"type": "object", "properties": {"action": {"type": "string", "enum": ["read", "search", "send", "mark_read"]}, "query": {"type": "string"}, "to": {"type": "string"}, "subject": {"type": "string"}, "body": {"type": "string"}, "max_results": {"type": "integer"}}, "required": ["action"]},
+            "description": "Gmail. Actions: read, search, send, reply, mark_read, important (HIGH/CRITICAL only), unread_count.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action":      {"type": "string", "enum": ["read", "search", "send", "reply", "mark_read", "important", "unread_count"]},
+                    "query":       {"type": "string"},
+                    "to":          {"type": "string"},
+                    "subject":     {"type": "string"},
+                    "body":        {"type": "string"},
+                    "message_id":  {"type": "string", "description": "Gmail message ID for reply"},
+                    "max_results": {"type": "integer"},
+                },
+                "required": ["action"],
+            },
         },
     },
     {
         "type": "function",
         "function": {
             "name": "calendar",
-            "description": "Google Calendar. Actions: list, create, delete.",
-            "parameters": {"type": "object", "properties": {"action": {"type": "string", "enum": ["list", "create", "delete"]}, "days": {"type": "integer"}, "title": {"type": "string"}, "start": {"type": "string"}, "end": {"type": "string"}, "description": {"type": "string"}, "location": {"type": "string"}}, "required": ["action"]},
+            "description": (
+                "Google Calendar. Actions: list, brief, today, week, find, create, "
+                "schedule_meet (creates Meet link + emails attendees), update, delete."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "action":      {"type": "string", "enum": ["list", "brief", "today", "week", "find", "create", "schedule_meet", "update", "delete"]},
+                    "days":        {"type": "integer"},
+                    "title":       {"type": "string"},
+                    "start":       {"type": "string", "description": "ISO 8601 e.g. 2026-04-14T15:00:00"},
+                    "end":         {"type": "string"},
+                    "description": {"type": "string"},
+                    "location":    {"type": "string"},
+                    "with_meet":   {"type": "boolean"},
+                    "attendees":   {"type": "string", "description": "Comma-separated emails"},
+                    "send_invite": {"type": "string"},
+                    "new_title":   {"type": "string"},
+                    "new_start":   {"type": "string"},
+                    "new_end":     {"type": "string"},
+                },
+                "required": ["action"],
+            },
         },
     },
     {

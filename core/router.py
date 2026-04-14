@@ -337,8 +337,15 @@ class BrainRouter:
             route = await _classify_with_context(user_input, scores, self._context)
             print(f"[Brain] LLM classify → {route.upper()}", flush=True)
 
-        # Get agent and build context
+        # Get agent and build context (session context only — agents refresh their own memory)
         context_str = self._context.build_context_prompt()
+
+        # Inject profile context if agents don't have it set
+        for agent in self._agents.values():
+            if hasattr(agent, '_profile') and agent._profile is None:
+                agent._profile = self._profile
+            if hasattr(agent, '_context') and agent._context is None:
+                agent._context = self._context
 
         # Special handling for github route — sub-route to monitor or action
         if route == "github" and self._github_router:
@@ -348,7 +355,7 @@ class BrainRouter:
 
         agent = self._agents.get(route, self._agents[self._default_route])
 
-        # Run agent
+        # Run agent — agent refreshes memory internally on each think() call
         response = await agent.think(user_input, context=context_str)
 
         # Update session context

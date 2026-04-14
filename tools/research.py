@@ -178,10 +178,10 @@ def _tavily_search_full(query: str, max_results: int = 5) -> list[dict]:
         payload = json.dumps({
             "api_key": _TAVILY_KEY,
             "query": query,
-            "search_depth": "advanced",  # Deeper than basic
+            "search_depth": "advanced",
             "max_results": max_results,
             "include_answer": True,
-            "include_raw_content": False,
+            "include_raw_content": True,
         }).encode()
         req = urllib.request.Request(
             "https://api.tavily.com/search",
@@ -265,15 +265,12 @@ def _build_summary(results: list[dict]) -> str:
 
 
 def _save_research_to_memory(query: str, results: dict) -> None:
-    """Save research results to MemPalace for future reference."""
-    key = f"research_{hash(query) % 10000}"
-    _safe_save_to_memory(
-        key,
-        f"Research on '{query}': {results.get('executive_summary', '')[:500]}",
-        wing="research",
-        room="reports",
-        importance=3,
-    )
+    """Record that research was done — save topic marker to KG only, NOT full content.
+
+    Research dumps (500-char summaries) must NOT go into the personal memory
+    ChromaDB collection — they flood context slots and crowd out personal facts.
+    Only the KG gets a lightweight triple: user → researched → topic.
+    """
     if _MEMPALACE_AVAILABLE:
         try:
             add_entity(query[:64], "research_topic")
@@ -531,7 +528,7 @@ def _build_company_summary(company: str, sections: dict) -> str:
             cleaned = _clean_for_summary(raw)
             if cleaned:
                 lines.append(f"## {display_name}")
-                lines.append(cleaned[:500])
+                lines.append(cleaned[:2000])
                 lines.append("")
 
     return "\n".join(lines)

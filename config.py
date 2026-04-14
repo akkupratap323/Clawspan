@@ -34,7 +34,4 @@ CARTESIA_VOICE_ID = os.getenv(
 
 # ─── Audio Settings ──────────────────────────────────────────────────────────
 
-CLAP_THRESHOLD     = 500
-CLAPS_REQUIRED     = 2
-CLAP_TIMEOUT       = 1.5
 SILENCE_TIMEOUT    = 2.5

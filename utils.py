@@ -6,21 +6,12 @@ import os
 
 
 def print_banner():
-    print("""
-+====================================================+
-|                                                      |
-|        J . A . R . V . I . S                         |
-|   Just A Rather Very Intelligent System              |
-|                                                      |
-|   STT  : Deepgram Nova-2 (real-time)                 |
-|   TTS  : Cartesia Sonic                              |
-|   Wake : Double Clap                                 |
-|   Exit : Say "goodbye" or Ctrl+C                     |
-|                                                      |
-|   Brain: DeepSeek V3 (2-3s, no limit)                |
-|   Claude Code CLI for deep reasoning                 |
-|                                                      |
-+====================================================+
+    from datetime import datetime
+    now = datetime.now().strftime("%H:%M · %d %b %Y").upper()
+    print(f"""
+  J · A · R · V · I · S
+  ─────────────────────────
+  SYSTEMS ONLINE  ·  {now}
 """)
 
 

@@ -166,6 +166,258 @@ def _ensure_dirs() -> None:
 
 # ── Document Templates ───────────────────────────────────────────────────────
 
+def _section_emoji(key: str) -> str:
+    """Return a decorative emoji for each section type."""
+    return {
+        "overview": "🏢",
+        "leadership": "👥",
+        "financials": "💰",
+        "products": "🛠️",
+        "news": "📰",
+        "competitors": "⚔️",
+        "trends": "📈",
+        "analyst_sentiment": "🔍",
+    }.get(key, "📋")
+
+
+def _clean_sources(sources: list[dict]) -> list[dict]:
+    """Strip tracking params and platform noise from source titles/URLs."""
+    cleaned = []
+    for s in sources:
+        title = re.sub(
+            r'\s*[\-|]\s*\b(Tracxn|Prospeo|Crunchbase|LinkedIn|CB Insights|Glassdoor|IPo Platform|Enablers|Inc42)\b.*$',
+            '', s.get("title", "Source"), flags=re.IGNORECASE,
+        ).strip() or "Source"
+        url = re.sub(r'[?&](srsltid|utm_[^&]+|ref|fbclid|gclid)=[^&]*', '', s.get("url", ""))
+        cleaned.append({"title": title, "url": url})
+    return cleaned
+
+
+def _render_section_block(key: str, display_name: str, section: dict) -> list[str]:
+    """Render a single research section as clean, structured markdown."""
+    emoji = _section_emoji(key)
+    lines = []
+
+    lines.append(f"## {emoji} {display_name}")
+    lines.append("")
+
+    content = _clean_content_for_doc(section.get("content", ""))
+    if content:
+        # Demote any headings so they nest under ## section header
+        content = re.sub(
+            r'^(#{1,4})\s',
+            lambda m: '#' * min(len(m.group(1)) + 2, 6) + ' ',
+            content, flags=re.MULTILINE,
+        )
+        lines.append(content)
+    else:
+        lines.append("*No data available for this section.*")
+
+    lines.append("")
+
+    sources = _clean_sources(section.get("sources", []))
+    if sources:
+        lines.append("<details>")
+        lines.append(f"<summary>📎 Sources ({len(sources)})</summary>")
+        lines.append("")
+        for i, s in enumerate(sources, 1):
+            if s["url"]:
+                lines.append(f"{i}. [{s['title']}]({s['url']})")
+            else:
+                lines.append(f"{i}. {s['title']}")
+        lines.append("")
+        lines.append("</details>")
+        lines.append("")
+
+    lines.append("---")
+    lines.append("")
+    return lines
+
+
+def _extract_key_highlights(content: str, max_points: int = 5) -> list[str]:
+    """Extract key bullet-point highlights from raw section content.
+
+    Pulls sentences that contain numbers, names, or strong signal words
+    — the kind of facts a reader wants at a glance.
+    """
+    if not content:
+        return []
+
+    # Split into sentences
+    sentences = re.split(r'(?<=[.!?])\s+', content.replace('\n', ' '))
+
+    signal_words = [
+        r'\$[\d,]+', r'\d+%', r'\d+\s*(million|billion|thousand|M|B|K)',
+        r'founded', r'launched', r'raised', r'acquired', r'announced',
+        r'CEO|CTO|CFO|founder', r'revenue', r'valuation', r'funding',
+        r'headquartered', r'employees', r'users', r'clients', r'platform',
+        r'series [A-Z]', r'IPO', r'partnership', r'award', r'patent',
+    ]
+    signal_re = re.compile('|'.join(signal_words), re.IGNORECASE)
+
+    scored = []
+    for s in sentences:
+        s = s.strip()
+        if len(s) < 40 or len(s) > 300:
+            continue
+        # Skip lines that are just headers or noise
+        if s.startswith('#') or s.startswith('|') or s.startswith('>'):
+            continue
+        score = len(signal_re.findall(s))
+        if score > 0:
+            scored.append((score, s))
+
+    scored.sort(key=lambda x: -x[0])
+    seen = set()
+    result = []
+    for _, s in scored:
+        key = s[:60].lower()
+        if key not in seen:
+            seen.add(key)
+            result.append(s)
+        if len(result) >= max_points:
+            break
+
+    return result
+
+
+def _build_smart_exec_summary(entity: str, sections: dict,
+                               report_type: str = "company") -> str:
+    """Build a structured, readable executive summary from research sections.
+
+    Produces 4 blocks:
+      1. What it is / overview paragraph
+      2. Key numbers at a glance (table)
+      3. Notable highlights (bullets)
+      4. Analyst view / recent developments
+    """
+    lines = []
+
+    # ── 1. What it is ───────────────────────────────────────────────────────
+    overview_content = ""
+    for key in ("overview",):
+        if key in sections and sections[key].get("content"):
+            raw = sections[key]["content"]
+            # Take the first clean paragraph of substance
+            for para in raw.split("\n"):
+                para = para.strip()
+                if len(para) > 80 and not para.startswith('#') and not para.startswith('|'):
+                    overview_content = para[:600]
+                    break
+
+    if overview_content:
+        lines.append(overview_content)
+        lines.append("")
+
+    # ── 2. Key Numbers ──────────────────────────────────────────────────────
+    metric_patterns = [
+        (r'\$[\d,.]+\s*(billion|million|B|M)\b', "Valuation / Revenue"),
+        (r'Series [A-Z]\b', "Funding Stage"),
+        (r'founded\s+in\s+\d{4}', "Founded"),
+        (r'(\d[\d,]+)\s+employees', "Team Size"),
+        (r'(\d[\d,]+)\+?\s+(users|customers|clients)', "User Base"),
+    ]
+
+    metrics: list[tuple[str, str]] = []
+    all_content = " ".join(
+        s.get("content", "") for s in sections.values() if isinstance(s, dict)
+    )
+    for pattern, label in metric_patterns:
+        m = re.search(pattern, all_content, re.IGNORECASE)
+        if m and len(metrics) < 5:
+            metrics.append((label, m.group(0).strip()))
+
+    if metrics:
+        lines.append("| Metric | Value |")
+        lines.append("|---|---|")
+        for label, value in metrics:
+            lines.append(f"| {label} | {value} |")
+        lines.append("")
+
+    # ── 3. Notable Highlights ───────────────────────────────────────────────
+    priority_keys = (
+        ["financials", "news", "products", "leadership"]
+        if report_type == "company"
+        else ["financials", "trends", "news", "analyst_sentiment"]
+    )
+    all_highlights: list[str] = []
+    for key in priority_keys:
+        if key in sections and isinstance(sections[key], dict):
+            highlights = _extract_key_highlights(sections[key].get("content", ""), max_points=2)
+            all_highlights.extend(highlights)
+
+    if all_highlights:
+        lines.append("**Key Highlights**")
+        lines.append("")
+        for h in all_highlights[:6]:
+            lines.append(f"- {h}")
+        lines.append("")
+
+    # ── 4. Recent Developments ──────────────────────────────────────────────
+    for key in ("news", "analyst_sentiment"):
+        if key in sections and isinstance(sections[key], dict):
+            news_content = sections[key].get("content", "")
+            for para in news_content.split("\n"):
+                para = para.strip()
+                if len(para) > 80 and not para.startswith('#') and not para.startswith('|'):
+                    lines.append(f"> {para[:400]}")
+                    break
+            break
+
+    return "\n".join(lines)
+
+
+def _render_section_block_v2(key: str, display_name: str, section: dict) -> list[str]:
+    """Render a research section with: heading, key highlights callout, full content, sources."""
+    emoji = _section_emoji(key)
+    lines: list[str] = []
+
+    lines.append(f"## {emoji} {display_name}")
+    lines.append("")
+
+    content = _clean_content_for_doc(section.get("content", ""))
+
+    # Key highlights callout — pull top 3 signal sentences
+    highlights = _extract_key_highlights(content, max_points=3)
+    if highlights:
+        lines.append("> **Key Highlights**")
+        for h in highlights:
+            lines.append(f">")
+            lines.append(f"> - {h}")
+        lines.append("")
+
+    if content:
+        # Demote nested headings so they sit below the ## section header
+        content = re.sub(
+            r'^(#{1,4})\s',
+            lambda m: '#' * min(len(m.group(1)) + 2, 6) + ' ',
+            content, flags=re.MULTILINE,
+        )
+        lines.append(content)
+    else:
+        lines.append("*No data available for this section.*")
+
+    lines.append("")
+
+    sources = _clean_sources(section.get("sources", []))
+    if sources:
+        lines.append("<details>")
+        lines.append(f"<summary>📎 Sources ({len(sources)})</summary>")
+        lines.append("")
+        for i, s in enumerate(sources, 1):
+            if s["url"]:
+                lines.append(f"{i}. [{s['title']}]({s['url']})")
+            else:
+                lines.append(f"{i}. {s['title']}")
+        lines.append("")
+        lines.append("</details>")
+        lines.append("")
+
+    lines.append("---")
+    lines.append("")
+    return lines
+
+
 def create_company_research_doc(company_data: dict, title: str = "") -> str:
     """Create a professional company research report from raw research data.
 
@@ -175,90 +427,68 @@ def create_company_research_doc(company_data: dict, title: str = "") -> str:
     _ensure_dirs()
 
     company = company_data.get("company", "Unknown Company")
-    doc_title = title or f"{company} Company Research Report"
+    doc_title = title or f"{company} — Company Research Report"
     sections = company_data.get("sections", {})
+    timestamp = datetime.now()
 
-    lines = []
+    SECTION_ORDER = [
+        ("overview",    "Company Overview"),
+        ("leadership",  "Leadership & Team"),
+        ("financials",  "Funding & Financials"),
+        ("products",    "Products & Technology"),
+        ("news",        "Recent News & Announcements"),
+        ("competitors", "Competitive Landscape"),
+    ]
+    present_sections = [(k, n) for k, n in SECTION_ORDER if k in sections]
 
-    # Header
+    lines: list[str] = []
+
+    # ── Cover Page ───────────────────────────────────────────────────────────
     lines.append(f"# {doc_title}")
     lines.append("")
-    lines.append(f"> **Generated:** {datetime.now().strftime('%B %d, %Y at %I:%M %p')}")
-    lines.append(f"> **Company:** {company}")
-    lines.append(f"> **Type:** Company Research Report")
+    lines.append("| | |")
+    lines.append("|---|---|")
+    lines.append(f"| **Company** | {company} |")
+    lines.append(f"| **Report Type** | Company Deep Research |")
+    lines.append(f"| **Date** | {timestamp.strftime('%B %d, %Y')} |")
+    lines.append(f"| **Prepared By** | Clawspan Research Engine |")
+    lines.append(f"| **Sections** | {len(present_sections)} |")
     lines.append("")
     lines.append("---")
     lines.append("")
 
-    # Table of Contents
-    lines.append("## Table of Contents")
+    # ── Table of Contents ────────────────────────────────────────────────────
+    lines.append("## Contents")
     lines.append("")
-    lines.append("- [Executive Summary](#executive-summary)")
-    if "overview" in sections: lines.append("- [Company Overview](#company-overview)")
-    if "leadership" in sections: lines.append("- [Leadership & Team](#leadership--team)")
-    if "financials" in sections: lines.append("- [Funding & Financials](#funding--financials)")
-    if "products" in sections: lines.append("- [Products & Technology](#products--technology)")
-    if "news" in sections: lines.append("- [Recent News](#recent-news)")
-    if "competitors" in sections: lines.append("- [Competitive Landscape](#competitive-landscape)")
+    lines.append("1. [Executive Summary](#executive-summary)")
+    for i, (key, display_name) in enumerate(present_sections, 2):
+        emoji = _section_emoji(key)
+        anchor = display_name.lower().replace(' ', '-').replace('&', '').replace('--', '-')
+        lines.append(f"{i}. [{emoji} {display_name}](#{anchor})")
     lines.append("")
     lines.append("---")
     lines.append("")
 
-    # Executive Summary — preserve the upstream research's own structure by
-    # demoting top-level headings (# / ##) to ### / #### so they nest cleanly
-    # under our ## Executive Summary anchor. Previously we stripped every
-    # leading # which produced a wall of unformatted text.
+    # ── Executive Summary ────────────────────────────────────────────────────
     lines.append("## Executive Summary")
     lines.append("")
-    exec_summary = company_data.get("executive_summary", "")
-    exec_demoted = re.sub(r'^(#{1,4})\s', lambda m: '#' * (len(m.group(1)) + 2) + ' ', exec_summary, flags=re.MULTILINE)
-    lines.append(exec_demoted or f"This report provides a comprehensive analysis of {company}.")
+    smart_summary = _build_smart_exec_summary(company, sections, report_type="company")
+    if smart_summary.strip():
+        lines.append(smart_summary)
+    else:
+        lines.append(f"**{company}** is the subject of this research report. "
+                     f"The report covers the company's overview, leadership, financials, "
+                     f"products and technology, recent news, and competitive landscape.")
     lines.append("")
     lines.append("---")
     lines.append("")
 
-    # Sections
-    section_map = {
-        "overview": ("Company Overview", True),
-        "leadership": ("Leadership & Team", True),
-        "financials": ("Funding & Financials", True),
-        "products": ("Products & Technology", True),
-        "news": ("Recent News", True),
-        "competitors": ("Competitive Landscape", True),
-    }
+    # ── Research Sections ────────────────────────────────────────────────────
+    for key, display_name in present_sections:
+        lines.extend(_render_section_block_v2(key, display_name, sections[key]))
 
-    for key, (display_name, _) in section_map.items():
-        if key in sections:
-            section = sections[key]
-            lines.append(f"## {display_name}")
-            lines.append("")
-            content = section.get("content", "")
-            # Clean raw scraped content before inserting into document
-            content = _clean_content_for_doc(content)[:3000]
-            lines.append(content)
-            lines.append("")
-
-            # Sources — clean titles, strip tracking params, hide platform names
-            if section.get("sources"):
-                lines.append("**Sources:**")
-                for i, s in enumerate(section["sources"], 1):
-                    title = s.get("title", "Source")
-                    url = s.get("url", "")
-                    # Clean source title — remove platform branding (pipe or hyphen separated)
-                    title = re.sub(r'\s*[\-|]\s*\b(Tracxn|Prospeo|Crunchbase|LinkedIn|CB Insights|Glassdoor|IPo Platform|Enablers|Inc42)\b.*$', '', title, flags=re.IGNORECASE)
-                    # Remove "NESTERLABS - 2026 Company Profile" patterns
-                    title = re.sub(r'^NESTER?LABS?\s*[-–—]\s*\d{4}\s+Company Profile\s*$', 'Company Profile', title, flags=re.IGNORECASE)
-                    # Clean URL — remove tracking params
-                    url = re.sub(r'[?&](srsltid|utm_[^&]+|ref|fbclid|gclid)=[^&]*', '', url)
-                    lines.append(f"{i}. [{title}]({url})")
-            lines.append("")
-            lines.append("---")
-            lines.append("")
-
-    # Footer
-    lines.append("")
-    lines.append("---")
-    lines.append(f"*Report generated by Clawspan Writer on {datetime.now().strftime('%B %d, %Y')}*")
+    # ── Footer ───────────────────────────────────────────────────────────────
+    lines.append(f"*Compiled by Clawspan · {timestamp.strftime('%B %d, %Y at %I:%M %p')} · Powered by Tavily*")
     lines.append("")
 
     return "\n".join(lines)
@@ -269,65 +499,68 @@ def create_market_analysis_doc(market_data: dict, title: str = "") -> str:
     _ensure_dirs()
 
     subject = market_data.get("subject", "Unknown")
-    doc_title = title or f"{subject} Market Analysis Report"
+    doc_title = title or f"{subject} — Market Analysis"
     sections = market_data.get("sections", {})
+    timestamp = datetime.now()
 
-    lines = []
+    SECTION_ORDER = [
+        ("overview",          "Market Overview"),
+        ("financials",        "Financial Performance"),
+        ("trends",            "Market Trends & Outlook"),
+        ("competitors",       "Competitor Analysis"),
+        ("analyst_sentiment", "Analyst Sentiment"),
+        ("news",              "Recent Developments"),
+    ]
+    present_sections = [(k, n) for k, n in SECTION_ORDER if k in sections]
+
+    lines: list[str] = []
+
+    # ── Cover Page ───────────────────────────────────────────────────────────
     lines.append(f"# {doc_title}")
     lines.append("")
-    lines.append(f"> **Generated:** {datetime.now().strftime('%B %d, %Y at %I:%M %p')}")
-    lines.append(f"> **Subject:** {subject}")
-    lines.append(f"> **Type:** Market Analysis Report")
+    lines.append("| | |")
+    lines.append("|---|---|")
+    lines.append(f"| **Subject** | {subject} |")
+    lines.append(f"| **Report Type** | Market Analysis |")
+    lines.append(f"| **Date** | {timestamp.strftime('%B %d, %Y')} |")
+    lines.append(f"| **Prepared By** | Clawspan Research Engine |")
+    lines.append(f"| **Sections** | {len(present_sections)} |")
     lines.append("")
     lines.append("---")
     lines.append("")
 
-    # Table of Contents
-    lines.append("## Table of Contents")
+    # ── Table of Contents ────────────────────────────────────────────────────
+    lines.append("## Contents")
     lines.append("")
-    toc_items = ["[Executive Summary](#executive-summary)"]
-    section_names = {
-        "overview": "Market Overview",
-        "financials": "Financial Performance",
-        "competitors": "Competitor Analysis",
-        "trends": "Market Trends & Outlook",
-        "analyst_sentiment": "Analyst Sentiment",
-        "news": "Recent Developments",
-    }
-    for key, name in section_names.items():
-        if key in sections:
-            toc_items.append(f"- [{name}](#{name.lower().replace(' ', '-')})")
-    lines.extend(toc_items)
+    lines.append("1. [Executive Summary](#executive-summary)")
+    for i, (key, display_name) in enumerate(present_sections, 2):
+        emoji = _section_emoji(key)
+        anchor = display_name.lower().replace(' ', '-').replace('&', '').replace('--', '-')
+        lines.append(f"{i}. [{emoji} {display_name}](#{anchor})")
     lines.append("")
     lines.append("---")
     lines.append("")
 
-    # Executive Summary — same heading-demotion rule as the company template
-    # so the upstream research structure survives intact.
+    # ── Executive Summary ────────────────────────────────────────────────────
     lines.append("## Executive Summary")
     lines.append("")
-    exec_summary = market_data.get("executive_summary", "")
-    exec_demoted = re.sub(r'^(#{1,4})\s', lambda m: '#' * (len(m.group(1)) + 2) + ' ', exec_summary, flags=re.MULTILINE)
-    lines.append(exec_demoted or f"This report provides a market analysis of {subject}.")
+    smart_summary = _build_smart_exec_summary(subject, sections, report_type="market")
+    if smart_summary.strip():
+        lines.append(smart_summary)
+    else:
+        lines.append(f"This report provides a comprehensive market analysis of **{subject}**, "
+                     f"covering market overview, financial performance, trends, competitive "
+                     f"dynamics, and recent developments.")
     lines.append("")
     lines.append("---")
     lines.append("")
 
-    # Sections
-    for key, display_name in section_names.items():
-        if key in sections:
-            section = sections[key]
-            lines.append(f"## {display_name}")
-            lines.append("")
-            content = section.get("content", "")
-            content = _clean_content_for_doc(content)[:3000]
-            lines.append(content)
-            lines.append("")
-            lines.append("---")
-            lines.append("")
+    # ── Research Sections ────────────────────────────────────────────────────
+    for key, display_name in present_sections:
+        lines.extend(_render_section_block_v2(key, display_name, sections[key]))
 
-    lines.append("")
-    lines.append(f"*Report generated by Clawspan Writer on {datetime.now().strftime('%B %d, %Y')}*")
+    # ── Footer ───────────────────────────────────────────────────────────────
+    lines.append(f"*Compiled by Clawspan · {timestamp.strftime('%B %d, %Y at %I:%M %p')} · Powered by Tavily*")
     lines.append("")
 
     return "\n".join(lines)
@@ -508,67 +741,391 @@ def _export_to_pdf(source: str, output: str) -> str:
         return f"PDF export error: {e}"
 
 
+def _add_inline_runs(paragraph, text: str) -> None:
+    """Parse inline markdown (bold, italic, links) and add styled runs to a paragraph."""
+    # Strip markdown links → just the display text
+    text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)
+    # Split on **bold** and *italic* markers
+    parts = re.split(r'(\*\*[^*]+\*\*|\*[^*]+\*)', text)
+    for part in parts:
+        if part.startswith('**') and part.endswith('**'):
+            run = paragraph.add_run(part[2:-2])
+            run.bold = True
+        elif part.startswith('*') and part.endswith('*'):
+            run = paragraph.add_run(part[1:-1])
+            run.italic = True
+        else:
+            paragraph.add_run(part)
+
+
+def _add_hr(doc) -> None:
+    """Add a thin horizontal rule paragraph."""
+    import docx as _docx
+    from docx.oxml.ns import qn
+    from docx.shared import Pt
+    p = doc.add_paragraph()
+    p.paragraph_format.space_before = Pt(4)
+    p.paragraph_format.space_after = Pt(4)
+    pPr = p._p.get_or_add_pPr()
+    pBdr = _docx.oxml.OxmlElement('w:pBdr')
+    bottom = _docx.oxml.OxmlElement('w:bottom')
+    bottom.set(qn('w:val'), 'single')
+    bottom.set(qn('w:sz'), '6')
+    bottom.set(qn('w:space'), '1')
+    bottom.set(qn('w:color'), 'CCCCCC')
+    pBdr.append(bottom)
+    pPr.append(pBdr)
+
+
+def _render_table(doc, table_lines: list[str]) -> None:
+    """Render a markdown pipe table into a proper DOCX table."""
+    import docx as _docx
+    from docx.shared import Pt, RGBColor
+    from docx.oxml.ns import qn
+
+    # Parse rows — skip separator lines (---|---)
+    rows = []
+    for line in table_lines:
+        line = line.strip().strip('|')
+        if re.match(r'^[\s\-|:]+$', line):
+            continue
+        cells = [c.strip() for c in line.split('|')]
+        if cells:
+            rows.append(cells)
+
+    if not rows:
+        return
+
+    max_cols = max(len(r) for r in rows)
+    # Pad short rows
+    rows = [r + [''] * (max_cols - len(r)) for r in rows]
+
+    tbl = doc.add_table(rows=len(rows), cols=max_cols)
+    tbl.style = 'Table Grid'
+
+    for r_idx, row in enumerate(rows):
+        for c_idx, cell_text in enumerate(row):
+            cell = tbl.cell(r_idx, c_idx)
+            # Strip remaining markdown from cell text
+            clean = re.sub(r'\*\*([^*]+)\*\*', r'\1', cell_text)
+            clean = re.sub(r'\*([^*]+)\*', r'\1', clean)
+            clean = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', clean)
+            p = cell.paragraphs[0]
+            run = p.add_run(clean)
+            run.font.size = Pt(10)
+            if r_idx == 0:
+                run.bold = True
+                # Header row shading
+                tc = cell._tc
+                tcPr = tc.get_or_add_tcPr()
+                shd = _docx.oxml.OxmlElement('w:shd')
+                shd.set(qn('w:val'), 'clear')
+                shd.set(qn('w:color'), 'auto')
+                shd.set(qn('w:fill'), '1F3864')
+                tcPr.append(shd)
+                run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
+
+
+def _add_cover_title(doc, title: str) -> None:
+    """Render the document H1 as a full-width dark blue cover title block."""
+    import docx as _docx
+    from docx.shared import Pt, RGBColor
+    from docx.oxml.ns import qn
+
+    p = doc.add_paragraph()
+    p.paragraph_format.space_before = Pt(0)
+    p.paragraph_format.space_after = Pt(12)
+
+    # Dark navy background shading on the paragraph
+    pPr = p._p.get_or_add_pPr()
+    shd = _docx.oxml.OxmlElement('w:shd')
+    shd.set(qn('w:val'), 'clear')
+    shd.set(qn('w:color'), 'auto')
+    shd.set(qn('w:fill'), '1F3864')
+    pPr.append(shd)
+
+    run = p.add_run(title)
+    run.bold = True
+    run.font.name = 'Calibri'
+    run.font.size = Pt(22)
+    run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
+
+
+def _render_cover_table(doc, table_lines: list[str]) -> None:
+    """Render the cover metadata table — left col bold dark, right col value, no header row."""
+    import docx as _docx
+    from docx.shared import Pt, RGBColor
+    from docx.oxml.ns import qn
+
+    rows = []
+    for line in table_lines:
+        line = line.strip().strip('|')
+        if re.match(r'^[\s\-|:]+$', line):
+            continue
+        cells = [c.strip() for c in line.split('|')]
+        if len(cells) >= 2 and any(c for c in cells):
+            rows.append(cells[:2])
+
+    if not rows:
+        return
+
+    tbl = doc.add_table(rows=len(rows), cols=2)
+    tbl.style = 'Table Grid'
+
+    for r_idx, (label, value) in enumerate(rows):
+        # Left cell — label
+        label_clean = re.sub(r'\*\*([^*]+)\*\*', r'\1', label).strip()
+        lc = tbl.cell(r_idx, 0)
+        lp = lc.paragraphs[0]
+        lr = lp.add_run(label_clean)
+        lr.bold = True
+        lr.font.size = Pt(10)
+        lr.font.color.rgb = RGBColor(0x1F, 0x38, 0x64)
+
+        # Shading on label cell
+        tcPr = lc._tc.get_or_add_tcPr()
+        shd = _docx.oxml.OxmlElement('w:shd')
+        shd.set(qn('w:val'), 'clear')
+        shd.set(qn('w:color'), 'auto')
+        shd.set(qn('w:fill'), 'EBF0FA')
+        tcPr.append(shd)
+
+        # Right cell — value
+        value_clean = re.sub(r'\*\*([^*]+)\*\*', r'\1', value).strip()
+        vc = tbl.cell(r_idx, 1)
+        vp = vc.paragraphs[0]
+        vr = vp.add_run(value_clean)
+        vr.font.size = Pt(10)
+
+
+def _render_callout_block(doc, lines: list[str]) -> None:
+    """Render a > blockquote block as a styled left-bordered callout box."""
+    import docx as _docx
+    from docx.shared import Pt, RGBColor
+    from docx.oxml.ns import qn
+
+    for line in lines:
+        inner = line.lstrip('> ').strip()
+        if not inner:
+            continue
+
+        p = doc.add_paragraph()
+        p.paragraph_format.left_indent = Pt(18)
+        p.paragraph_format.space_after = Pt(2)
+
+        # Left border to simulate callout
+        pPr = p._p.get_or_add_pPr()
+        pBdr = _docx.oxml.OxmlElement('w:pBdr')
+        left = _docx.oxml.OxmlElement('w:left')
+        left.set(qn('w:val'), 'single')
+        left.set(qn('w:sz'), '12')
+        left.set(qn('w:space'), '4')
+        left.set(qn('w:color'), '2E74B5')
+        pBdr.append(left)
+        pPr.append(pBdr)
+
+        # Shading
+        shd = _docx.oxml.OxmlElement('w:shd')
+        shd.set(qn('w:val'), 'clear')
+        shd.set(qn('w:color'), 'auto')
+        shd.set(qn('w:fill'), 'EFF4FB')
+        pPr.append(shd)
+
+        _add_inline_runs(p, inner)
+        for run in p.runs:
+            run.font.size = Pt(10)
+            if not run.bold:
+                run.font.color.rgb = RGBColor(0x24, 0x49, 0x7A)
+
+
 def _export_to_docx(source: str, output: str) -> str:
-    """Export markdown to DOCX via python-docx (manual parsing for clean output)."""
+    """Export markdown to a clean, properly formatted DOCX — no raw markdown symbols."""
     try:
-        import docx
-        from docx.shared import Pt, Inches, RGBColor
+        import docx as _docx
+        from docx.shared import Pt, RGBColor, Inches
         from docx.enum.text import WD_ALIGN_PARAGRAPH
 
-        doc = docx.Document()
+        doc = _docx.Document()
 
-        # Set default font
-        style = doc.styles['Normal']
-        font = style.font
-        font.name = 'Calibri'
-        font.size = Pt(11)
+        # ── Page margins ─────────────────────────────────────────────────
+        for section in doc.sections:
+            section.top_margin = Inches(1)
+            section.bottom_margin = Inches(1)
+            section.left_margin = Inches(1.1)
+            section.right_margin = Inches(1.1)
 
-        with open(source) as f:
+        # ── Document-wide typography ─────────────────────────────────────
+        for style_name in ('Normal', 'Body Text'):
+            try:
+                s = doc.styles[style_name]
+                s.font.name = 'Calibri'
+                s.font.size = Pt(11)
+            except Exception:
+                pass
+
+        # Heading styles
+        heading_colors = {1: '1F3864', 2: '1F3864', 3: '2E74B5', 4: '404040'}
+        heading_sizes  = {1: 22, 2: 16, 3: 13, 4: 12}
+        for level, color_hex in heading_colors.items():
+            try:
+                h = doc.styles[f'Heading {level}']
+                h.font.name = 'Calibri'
+                h.font.size = Pt(heading_sizes[level])
+                h.font.color.rgb = RGBColor(
+                    int(color_hex[0:2], 16),
+                    int(color_hex[2:4], 16),
+                    int(color_hex[4:6], 16),
+                )
+            except Exception:
+                pass
+
+        with open(source, encoding='utf-8') as f:
             content = f.read()
 
-        lines = content.split("\n")
-        for line in lines:
-            line = line.rstrip()
+        lines = content.split('\n')
+        i = 0
+        first_h1_done = False  # track whether we've rendered the cover title
 
-            # Empty line
-            if not line.strip():
-                doc.add_paragraph("")
+        while i < len(lines):
+            line = lines[i].rstrip()
+
+            # ── Skip TOC anchor links ─────────────────────────────────────
+            if re.match(r'^\d+\.\s+\[.*\]\(#.*\)\s*$', line):
+                i += 1
+                continue
+            if re.match(r'^-\s+\[.*\]\(#.*\)\s*$', line):
+                i += 1
                 continue
 
-            # Headers
+            # ── <details> / sources block ─────────────────────────────────
+            if re.match(r'^\s*<details>', line, re.IGNORECASE):
+                i += 1
+                sources_lines = []
+                while i < len(lines) and not re.match(r'^\s*</details>', lines[i], re.IGNORECASE):
+                    l = lines[i].strip()
+                    if re.match(r'<summary>.*</summary>', l, re.IGNORECASE):
+                        i += 1
+                        continue
+                    m = re.match(r'^(\d+)\.\s+\[([^\]]+)\]\(([^)]+)\)', l)
+                    if m:
+                        sources_lines.append(f"{m.group(1)}. {m.group(2)}")
+                    i += 1
+                if sources_lines:
+                    p = doc.add_paragraph()
+                    r = p.add_run('Sources:')
+                    r.bold = True
+                    r.font.size = Pt(9)
+                    r.font.color.rgb = RGBColor(0x44, 0x44, 0x44)
+                    for sl in sources_lines:
+                        sp = doc.add_paragraph(sl, style='Normal')
+                        if sp.runs:
+                            sp.runs[0].font.size = Pt(9)
+                            sp.runs[0].font.color.rgb = RGBColor(0x44, 0x72, 0xC4)
+                i += 1
+                continue
+
+            # ── Skip bare HTML tags ───────────────────────────────────────
+            if re.match(r'^\s*<[^>]+>\s*$', line):
+                i += 1
+                continue
+
+            # ── Empty line ────────────────────────────────────────────────
+            if not line.strip():
+                doc.add_paragraph('')
+                i += 1
+                continue
+
+            # ── Horizontal rule ───────────────────────────────────────────
+            if re.match(r'^---+$', line.strip()) or re.match(r'^\*\*\*+$', line.strip()):
+                _add_hr(doc)
+                i += 1
+                continue
+
+            # ── Cover metadata table (2 columns, no header row shading) ───
+            # Detect: first table that appears after the H1, before any H2
+            if '|' in line and re.match(r'^\s*\|', line) and not first_h1_done:
+                # still in cover area — skip to normal table render
+                pass  # fall through to table handler below
+
+            # ── Markdown table ─────────────────────────────────────────────
+            if '|' in line and re.match(r'^\s*\|', line):
+                table_lines = []
+                while i < len(lines) and '|' in lines[i]:
+                    table_lines.append(lines[i])
+                    i += 1
+                # Cover metadata table: 2 cols, appears right after H1, no header highlight
+                is_cover_table = not first_h1_done and len(table_lines) >= 2
+                if is_cover_table:
+                    _render_cover_table(doc, table_lines)
+                else:
+                    _render_table(doc, table_lines)
+                continue
+
+            # ── H1 → styled cover title ───────────────────────────────────
+            if re.match(r'^#\s+', line) and not first_h1_done:
+                title_text = re.sub(r'^#\s+', '', line)
+                title_text = re.sub(r'\*\*([^*]+)\*\*', r'\1', title_text).strip()
+                _add_cover_title(doc, title_text)
+                first_h1_done = True
+                i += 1
+                continue
+
+            # ── Other headings ────────────────────────────────────────────
             header_match = re.match(r'^(#{1,6})\s+(.*)', line)
             if header_match:
-                level = len(header_match.group(1))
+                level = min(len(header_match.group(1)), 4)
                 text = header_match.group(2)
-                h = doc.add_heading(text, level=level)
+                text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)
+                text = re.sub(r'\*([^*]+)\*', r'\1', text)
+                text = text.strip()
+                if text:
+                    doc.add_heading(text, level=level)
+                i += 1
                 continue
 
-            # Blockquote
-            if line.startswith("> "):
-                p = doc.add_paragraph(line[2:], style='Intense Quote')
+            # ── Blockquote callout block ──────────────────────────────────
+            # Collect all consecutive > lines and render as callout
+            if line.startswith('> ') or line == '>':
+                callout_lines = []
+                while i < len(lines) and (lines[i].startswith('> ') or lines[i].strip() == '>'):
+                    callout_lines.append(lines[i])
+                    i += 1
+                _render_callout_block(doc, callout_lines)
                 continue
 
-            # Horizontal rule
-            if line.strip() == "---" or line.strip() == "***":
-                p = doc.add_paragraph()
-                p.paragraph_format.space_before = Pt(6)
-                p.paragraph_format.space_after = Pt(6)
-                from docx.oxml.ns import qn
-                pPr = p._p.get_or_add_pPr()
-                pBdr = docx.oxml.OxmlElement('w:pBdr')
-                bottom = docx.oxml.OxmlElement('w:bottom')
-                bottom.set(qn('w:val'), 'single')
-                bottom.set(qn('w:sz'), '12')
-                bottom.set(qn('w:space'), '1')
-                bottom.set(qn('w:color'), '999999')
-                pBdr.append(bottom)
-                pPr.append(pBdr)
+            # ── Bullet list ───────────────────────────────────────────────
+            if re.match(r'^[-*]\s+', line):
+                text = re.sub(r'^[-*]\s+', '', line)
+                p = doc.add_paragraph(style='List Bullet')
+                _add_inline_runs(p, text)
+                p.paragraph_format.space_after = Pt(2)
+                i += 1
                 continue
 
-            # Bold/italic inline
-            text = line
-            # Simple: just add as paragraph
-            p = doc.add_paragraph(text)
+            # ── Numbered list ─────────────────────────────────────────────
+            if re.match(r'^\d+\.\s+', line):
+                text = re.sub(r'^\d+\.\s+', '', line)
+                p = doc.add_paragraph(style='List Number')
+                _add_inline_runs(p, text)
+                p.paragraph_format.space_after = Pt(2)
+                i += 1
+                continue
+
+            # ── Footer italic line ────────────────────────────────────────
+            if line.startswith('*') and line.endswith('*') and not line.startswith('**'):
+                p = doc.add_paragraph(line.strip('*'))
+                if p.runs:
+                    p.runs[0].italic = True
+                    p.runs[0].font.size = Pt(9)
+                    p.runs[0].font.color.rgb = RGBColor(0x88, 0x88, 0x88)
+                i += 1
+                continue
+
+            # ── Normal paragraph ──────────────────────────────────────────
+            p = doc.add_paragraph()
+            _add_inline_runs(p, line)
+            p.paragraph_format.space_after = Pt(4)
+            i += 1
 
         doc.save(output)
         return f"DOCX saved: {output}"

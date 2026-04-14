@@ -25,172 +25,7 @@ This is not a wrapper around an existing AI platform. The intent routing, multi-
 
 ## Full Architecture
 
-```mermaid
-flowchart TD
-    User(["👤 User"])
-
-    subgraph SECURITY ["🔒 Security Gate"]
-        direction TB
-        AuthInput["Type Passphrase"]
-        AuthCheck["SHA-256 + Salt Verify\ncore/auth.py"]
-        Lockout["3 attempts → 60s lockout\n~/.clawspan_auth.json"]
-        AuthInput --> AuthCheck
-        AuthCheck -->|"wrong × 3"| Lockout
-    end
-
-    subgraph VOICE ["🎙️ Voice Layer — Pipecat transport only"]
-        direction LR
-        Mic["🎤 Microphone"]
-        VAD["Silero VAD\nsilence detection"]
-        STT["Deepgram nova-2\nSpeech → Text"]
-        JP["ClawspanProcessor\nvoice/pipeline.py"]
-        TTS["Cartesia Sonic\nText → Speech"]
-        Speaker["🔊 Speaker"]
-        Mic --> VAD --> STT --> JP --> TTS --> Speaker
-    end
-
-    subgraph BRAIN ["🧠 Brain Layer — hand-rolled, zero framework"]
-        direction TB
-
-        subgraph ROUTER ["BrainRouter — core/router.py"]
-            T1["Tier 1: Keyword Pattern Score\n~0ms — no LLM needed"]
-            T2["Tier 2: LLM Context Classifier\n~0.3s — only when ambiguous"]
-            T3["Tier 3: Multi-intent Decompose\n~0.5s — compound requests"]
-            T1 -->|"confidence < threshold"| T2
-            T2 -->|"has connectors: and, then, also"| T3
-        end
-
-        subgraph AGENTS ["Domain Agents — all extend BaseAgent"]
-            direction LR
-            SysA["⚙️ SystemAgent\nMac control, terminal\napps, mouse, clipboard"]
-            ResA["🔬 ResearchAgent\nDeep research\ncompany + market analysis"]
-            WriA["📝 WriterAgent\nDocs, briefs, reports\nMarkdown / PDF / DOCX"]
-            CalA["📅 CalendarAgent\nGmail + Google Calendar\nsend, search, schedule"]
-            CodA["💻 CodingAgent\nClaude-powered\ncode, debug, refactor"]
-            ClaA["🤖 ClaudeAgent\nAnthropic Claude\ncomplex reasoning"]
-            DepA["☁️ DeployMonitorAgent\nAWS Lightsail, cost\nSSL, health checks"]
-            GHR["GitHub Sub-Router\ncore/github_router.py"]
-            GHMon["👁️ GitHubMonitorAgent\ntrack repos, releases\nread-only"]
-            GHAct["⚡ GitHubActionAgent\nissues, PRs, stars\nwrite operations"]
-            GHR --> GHMon & GHAct
-        end
-
-        BASE["BaseAgent — core/base_agent.py\nTool-calling loop · DSML leak recovery\nauto fact extraction after every turn"]
-
-        ROUTER --> SysA & ResA & WriA & CalA & CodA & ClaA & DepA & GHR
-        SysA & ResA & WriA & CalA & CodA & ClaA & DepA --> BASE
-    end
-
-    subgraph LLM_LAYER ["⚡ LLM Layer — multiple models, different roles"]
-        DS["DeepSeek V3\nAll domain agents\ncheap + fast reasoning"]
-        GPT4O["GPT-4o\nVoice pipeline LLM\nlow-latency turns"]
-        GPT4OMINI["GPT-4o-mini\nFact extraction only\n~$0.0001 per turn"]
-        CLAUDE["Anthropic Claude\nCodingAgent only\ncomplex code tasks"]
-        EMB["text-embedding-3-small\nMemPalace semantic search\nfact similarity"]
-    end
-
-    subgraph MEMORY ["🏛️ Memory Palace — ~/.mempalace/"]
-        direction TB
-
-        subgraph LAYERS ["4-Layer Memory Architecture"]
-            L0["L0 Identity Layer\nidentity.txt — always loaded\n~100 tokens, fast boot"]
-            L1["L1 Importance Layer\ntop-10 facts by importance score\n~500 tokens, every session"]
-            L2["L2 Semantic Layer\nquery-relevant facts via cosine sim\n~200 tokens, per-turn"]
-            L3["L3 Knowledge Graph\nSQLite entities + triples\nstructured relationships"]
-        end
-
-        subgraph STORES ["Dual Storage"]
-            CHROMA["ChromaDB\npalace/chroma.sqlite3\ncollection: mempalace_drawers\nOpenAI embeddings"]
-            KG["SQLite KG\nknowledge_graph.sqlite3\nentities · triples\nperson / project / system"]
-        end
-
-        subgraph WINGS ["Memory Wings (namespaces)"]
-            W1["personal\nidentity, name, role"]
-            W2["project\nwork decisions, infra"]
-            W3["preference\nhow to behave"]
-            W4["reference\nexternal systems"]
-        end
-
-        FE["🔍 FactExtractor\ncore/fact_extractor.py\nfire-and-forget after every turn\ngpt-4o-mini · ~$0.0001/turn\ndeduplication via similarity > 0.92"]
-
-        L0 & L1 & L2 --> CHROMA
-        L3 --> KG
-        CHROMA --> W1 & W2 & W3 & W4
-    end
-
-    subgraph AWARENESS ["👁️ AwarenessLoop — proactive monitoring"]
-        CAL_CHK["📅 Calendar check\nevery 5 min\nalerts 10-15 min before events"]
-        EMAIL_CHK["📧 Email delta\nevery 5 min\nunread count change"]
-        BATT_CHK["🔋 Battery level\nevery 5 min\nwarn at 20% + 10%"]
-        GH_CHK["🐙 GitHub releases\nevery 6 hours\nnew versions + security advisories"]
-        DEP_CHK["☁️ Deploy health\nevery 15 min\ndown · degraded · SSL expiry · latency"]
-        NQ["NotificationQueue\npriority: CRITICAL / HIGH / MEDIUM / LOW\nchecked before every request"]
-        CAL_CHK & EMAIL_CHK & BATT_CHK & GH_CHK & DEP_CHK --> NQ
-    end
-
-    subgraph TOOLS ["🛠️ Tools Layer — tools/voice_tools/"]
-        direction LR
-        TSys["system.py\nterminal · apps\nChrome · clipboard\nvolume · brightness"]
-        TDesk["desktop.py\nFinder · mouse\nAI-vision clicks\nscreen describe"]
-        TGH["github_tool.py\nfull R/W surface\nissues · PRs\ninsights · advisories"]
-        TDep["deploy.py\nAWS Lightsail\nhealth · cost · SSL\nnetwork stats"]
-        TRes["research.py\ndeep / company / market\ncrawl2RAG\nmeeting prep"]
-        TWri["writer.py\ncompany briefs\nmarket analyses\ncustom docs"]
-        TCom["comms.py\nGmail\nGoogle Calendar"]
-        TMus["music.py\nApple Music\nYouTube Music"]
-        TMem["memory_tool.py\nMemPalace R/W\nfrom voice commands"]
-        TSh["shell.py\nraw shell\nescape hatch"]
-    end
-
-    subgraph PERSISTENCE ["💾 Persistence — local files"]
-        PROF["~/.clawspan_profile.json\nUserProfile\nname · timezone · skills\ngoals · tech stack"]
-        AUTH_FILE["~/.clawspan_auth.json\nSHA-256 + salt hash\nfailed attempts\nlockout timestamp"]
-        MEM_DIR["~/.mempalace/\npalace/ ChromaDB\nknowledge_graph.sqlite3\nidentity.txt"]
-    end
-
-    %% Main flow
-    User -->|"speaks"| SECURITY
-    AuthCheck -->|"✅ access granted"| VOICE
-    JP -->|"user text + tool calls"| BRAIN
-    ROUTER --> NQ
-    BASE --> LLM_LAYER
-    BASE --> TOOLS
-    BASE -->|"extract facts async"| FE
-    FE --> CHROMA & KG
-    BRAIN -->|"inject L0+L1+L2 context"| MEMORY
-    AWARENESS --> NQ
-    JP -->|"system prompt per turn"| MEMORY
-
-    %% Persistence links
-    BASE --> PROF
-    AuthCheck --> AUTH_FILE
-    CHROMA & KG --> MEM_DIR
-
-    %% LLM routing
-    DS -.->|"domain agents"| BASE
-    GPT4O -.->|"voice pipeline"| JP
-    GPT4OMINI -.->|"fact extraction"| FE
-    CLAUDE -.->|"coding tasks"| CodA
-    EMB -.->|"embeddings"| CHROMA
-
-    classDef security fill:#7f1d1d,stroke:#ef4444,color:#fff
-    classDef voice fill:#1e3a5f,stroke:#3b82f6,color:#fff
-    classDef brain fill:#1a2e1a,stroke:#22c55e,color:#fff
-    classDef memory fill:#2d1b69,stroke:#a78bfa,color:#fff
-    classDef tools fill:#1c1917,stroke:#a8a29e,color:#fff
-    classDef llm fill:#451a03,stroke:#f97316,color:#fff
-    classDef awareness fill:#0c2340,stroke:#38bdf8,color:#fff
-    classDef persist fill:#1c1917,stroke:#78716c,color:#fff
-
-    class SECURITY,AuthInput,AuthCheck,Lockout security
-    class VOICE,Mic,VAD,STT,JP,TTS,Speaker voice
-    class BRAIN,ROUTER,AGENTS,BASE,T1,T2,T3,SysA,ResA,WriA,CalA,CodA,ClaA,DepA,GHR,GHMon,GHAct brain
-    class MEMORY,LAYERS,STORES,WINGS,L0,L1,L2,L3,CHROMA,KG,W1,W2,W3,W4,FE memory
-    class TOOLS,TSys,TDesk,TGH,TDep,TRes,TWri,TCom,TMus,TMem,TSh tools
-    class LLM_LAYER,DS,GPT4O,GPT4OMINI,CLAUDE,EMB llm
-    class AWARENESS,CAL_CHK,EMAIL_CHK,BATT_CHK,GH_CHK,DEP_CHK,NQ awareness
-    class PERSISTENCE,PROF,AUTH_FILE,MEM_DIR persist
-```
+![Clawspan Architecture](clawspanart.png)
 
 ---
 
@@ -589,55 +424,71 @@ clawspan/
 ### Prerequisites
 
 - macOS (tested on macOS 15 Sequoia)
-- Python 3.11 (`brew install python@3.11`)
-- GitHub CLI (`brew install gh`)
+- Python 3.11+ — `brew install python@3.11`
+- Node.js 18+ — `brew install node` (for HUD only)
 
-### API Keys Required
-
-| Key | Where |
-|---|---|
-| `OPENAI_API_KEY` | platform.openai.com |
-| `DEEPGRAM_API_KEY` | console.deepgram.com |
-| `CARTESIA_API_KEY` | cartesia.ai |
-| `TAVILY_API_KEY` | tavily.com |
-| `GITHUB_TOKEN` | GitHub → Settings → Developer settings → PAT |
-| `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` | console.cloud.google.com |
-
-Optional:
-
-| Key | Purpose |
-|---|---|
-| `DEEPSEEK_API_KEY` | All domain agents (falls back to OpenAI if unset) |
-| `CARTESIA_VOICE_ID` | Override the default British Clawspan voice |
-
-### Install
+### One-command setup
 
 ```bash
 git clone https://github.com/akkupratap323/clawspan
 cd clawspan
-python3.11 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
-# Fill in your API keys
-python main.py          # voice mode
-python main.py --text   # text mode — no mic/speaker needed
+bash setup.sh
 ```
 
-### Environment Variables
+`setup.sh` will:
+1. Check Python + Node are installed
+2. Create and populate a Python virtual environment
+3. Install HUD (Electron) dependencies
+4. Walk you through entering all your API keys interactively
+5. Create `~/Clawspan_Docs/` and `~/.mempalace/` directories
+6. Install the `clawspan` CLI to `/usr/local/bin`
 
-```env
-OPENAI_API_KEY=
-DEEPGRAM_API_KEY=
-CARTESIA_API_KEY=
-TAVILY_API_KEY=
-GITHUB_TOKEN=
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-DEEPSEEK_API_KEY=           # optional
-CARTESIA_VOICE_ID=          # optional
-Clawspan_SKIP_AUTH=1          # skip passphrase gate during development
+After setup completes you control everything through one command:
+
 ```
+clawspan start      — voice mode (mic + wake word "Hey Clawspan")
+clawspan text       — text mode  (terminal chat, no mic needed)
+clawspan hud        — launch the Iron Man HUD overlay
+clawspan stop       — stop all running processes
+clawspan status     — show which processes are running
+clawspan logs       — tail live log output
+clawspan keys       — edit your .env API keys in $EDITOR
+clawspan update     — pull latest code + refresh dependencies
+clawspan setup      — re-run the full setup wizard
+```
+
+### API Keys
+
+`setup.sh` will prompt for each one interactively. Here's where to get them:
+
+#### Required
+
+| Key | Where to get it |
+|---|---|
+| `DEEPSEEK_API_KEY` | [platform.deepseek.com](https://platform.deepseek.com) → API Keys — primary brain for all agents |
+| `OPENAI_API_KEY` | [platform.openai.com](https://platform.openai.com/api-keys) — MemPalace embeddings |
+| `DEEPGRAM_API_KEY` | [console.deepgram.com](https://console.deepgram.com) → Create API Key — speech-to-text |
+| `CARTESIA_API_KEY` | [play.cartesia.ai](https://play.cartesia.ai) → API Keys — text-to-speech |
+
+#### Optional (enables extra capabilities)
+
+| Key | Where | What it unlocks |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com/settings/keys) | Claude agent for complex code tasks |
+| `TAVILY_API_KEY` | [app.tavily.com](https://app.tavily.com) | Deep web research, company briefs |
+| `GITHUB_TOKEN` | [github.com/settings/tokens](https://github.com/settings/tokens) — scopes: `repo, read:user, read:org` | GitHub monitoring + issue/PR creation |
+| `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` | [console.cloud.google.com](https://console.cloud.google.com) → Credentials → OAuth 2.0 Client IDs | Gmail + Google Calendar |
+| `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` | AWS Console → IAM → Users → Security credentials | Lightsail health, cost monitoring |
+| `CARTESIA_VOICE_ID` | [play.cartesia.ai](https://play.cartesia.ai) → Voice Library | Override the default British voice |
+
+> You can also run `clawspan keys` at any time to open `.env` in your editor and add/update keys.
+
+### First run
+
+On first launch Clawspan will:
+1. Ask you to set a passphrase (SHA-256 + salt, stored locally in `~/.clawspan_auth.json`)
+2. Run a short onboarding: your name, GitHub username, timezone, and tech stack
+3. Start learning from your conversations automatically via FactExtractor
 
 ---
 

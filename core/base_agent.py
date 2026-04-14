@@ -32,7 +32,14 @@ _PERSONAL_KEYWORDS = re.compile(
     r'\b(my name is|i am|i live|i work|my favorite|i like|i love|i hate|'
     r'i prefer|remind me|remember that|my birthday|my email|my phone|'
     r'my address|my wife|my husband|my daughter|my son|my dog|my cat|'
-    r'i\'m from|i was born|my job|my hobby|my schedule|call me)\b',
+    r'i\'m from|i was born|my job|my hobby|my schedule|call me|'
+    r'my company|i founded|we raised|our product|i\'m building|i\'m working on|'
+    r'my project|my startup|my team|my goal|my plan|my deadline|'
+    r'my university|my college|i study|i\'m studying|i graduated|'
+    r'my age|i turned|i\'m \d+|born in|my timezone|i\'m in|i\'m at|'
+    r'my boss|my manager|my colleague|my co-founder|my investor|'
+    r'always remember|never forget|important:|note:|fyi:|'
+    r'my api key|my token|my password|my username)\b',
     re.IGNORECASE,
 )
 
@@ -154,23 +161,30 @@ class BaseAgent:
         self._profile = profile
         self._router = None
 
-        # Build system prompt with memory context (now MemPalace-powered)
-        mem_context = build_memory_context()
-        full_prompt = (
+        # Static base: personality + agent instructions + rules (no memory yet)
+        # Memory is injected fresh on every think() call
+        self._base_prompt = (
             PERSONALITY + "\n\n"
             + self.SYSTEM_PROMPT + "\n\n"
             + RESPONSE_RULES
-            + mem_context
         )
-        # Inject profile and context if available
-        if profile:
-            full_prompt += profile.build_profile_block()
-        if context:
-            full_prompt += context.build_context_prompt()
         self._conversation: list[dict] = [
-            {"role": "system", "content": full_prompt},
+            {"role": "system", "content": self._base_prompt},
         ]
         print(f"[{self.name}] Ready.", flush=True)
+
+    def _build_system_prompt(self, query_hint: str = "") -> str:
+        """Build a fresh system prompt with live memory, profile, and context.
+
+        Called on every think() turn so newly-saved facts are visible immediately.
+        """
+        mem_context = build_memory_context(query_hint=query_hint)
+        prompt = self._base_prompt + mem_context
+        if self._profile:
+            prompt += self._profile.build_profile_block()
+        if self._context:
+            prompt += self._context.build_context_prompt()
+        return prompt
 
     # ── Tool execution ───────────────────────────────────────────────────────
 
@@ -217,6 +231,9 @@ class BaseAgent:
 
     async def think(self, user_input: str, context: str = "") -> str:
         """Process user input and return a spoken response."""
+        # Refresh system prompt with live memory on every turn
+        self._conversation[0]["content"] = self._build_system_prompt(query_hint=user_input)
+
         # Inject session context if provided separately
         if context:
             self._conversation.append({"role": "user", "content": f"{context}\n\n{user_input}"})

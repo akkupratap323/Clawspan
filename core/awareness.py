@@ -179,26 +179,33 @@ class AwarenessLoop:
     # ── Email check ──────────────────────────────────────────────────────
 
     async def _check_email(self) -> None:
-        """Check unread email count delta."""
+        """Surface new HIGH/CRITICAL emails immediately; ignore low-signal noise."""
         try:
-            from tools.google import gmail_read
-            result = gmail_read(max_results=1, query="is:unread")
+            from tools.google import gmail_read_important
+            import asyncio
+            important = await asyncio.to_thread(gmail_read_important, 10)
         except Exception:
             return
 
-        # Count emails in result
-        count = result.count("From:") if result else 0
-        if self._last_email_count is None:
-            self._last_email_count = count
+        if not hasattr(self, "_seen_email_ids"):
+            # First run — seed seen set so we don't spam on startup
+            self._seen_email_ids: set[str] = {e["id"] for e in important}
             return
 
-        if count > self._last_email_count:
-            new_count = count - self._last_email_count
-            msg = f"{new_count} new unread email{'s' if new_count > 1 else ''}"
-            self._queue.add(Notification(
-                priority="MEDIUM", message=msg, source="email"
-            ))
-        self._last_email_count = count
+        for email in important:
+            eid = email["id"]
+            if eid not in self._seen_email_ids:
+                self._seen_email_ids.add(eid)
+                sender_name = email["sender"].split("<")[0].strip()
+                msg = (
+                    f"New {email['importance'].lower()} email from {sender_name}: "
+                    f"\"{email['subject']}\""
+                )
+                self._queue.add(Notification(
+                    priority=email["importance"],
+                    message=msg,
+                    source="email",
+                ))
 
     # ── Battery check ────────────────────────────────────────────────────
 

@@ -3,8 +3,7 @@
 Two entry points for existing vs first-run users, gated by
 `core.auth.is_setup()`. The gate captures microphone audio via sounddevice,
 ships it to Deepgram's prerecorded endpoint for transcription, then matches
-against the stored passphrase hash. Respects the `Clawspan_SKIP_AUTH` env var
-for local development.
+against the stored passphrase hash.
 """
 
 from __future__ import annotations
@@ -196,11 +195,6 @@ async def _first_time_setup() -> None:
 
 async def run_voice_auth_gate() -> bool:
     """Run the passphrase gate via voice (mic capture + STT). Returns True to continue."""
-    skip = os.getenv("CLAWSPAN_SKIP_AUTH", "").lower() in ("1", "true", "yes")
-    if skip:
-        print("[Auth] Skipped (CLAWSPAN_SKIP_AUTH=1)", flush=True)
-        return True
-
     if is_setup():
         return await _verify_existing_user()
 
@@ -210,11 +204,6 @@ async def run_voice_auth_gate() -> bool:
 
 async def run_text_auth_gate() -> bool:
     """Run the passphrase gate via typed password input. Returns True to continue."""
-    skip = os.getenv("CLAWSPAN_SKIP_AUTH", "").lower() in ("1", "true", "yes")
-    if skip:
-        print("[Auth] Skipped (CLAWSPAN_SKIP_AUTH=1)", flush=True)
-        return True
-
     if is_setup():
         print("\n[Auth] Enter password:", flush=True)
         for attempt in range(3):
@@ -267,5 +256,5 @@ async def run_text_auth_gate() -> bool:
         print("[Auth] Password set. Systems online.", flush=True)
         return True
 
-    print("[Auth] Passwords didn't match. Skipping setup.", flush=True)
-    return True
+    print("[Auth] Passwords didn't match. Run again to set a password.", flush=True)
+    return False
