@@ -1,0 +1,57 @@
+name: 💡 Feature Request
+description: Suggest a new feature or improvement
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a feature!
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Tell us about the use case or pain point.
+      placeholder: I want to be able to...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Your proposed solution
+      description: How would you like this to work?
+      placeholder: I'd like Clawspan to...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Which area does this affect?
+      multiple: true
+      options:
+        - Voice pipeline
+        - Agent routing
+        - Memory / MemPalace
+        - Tool integrations
+        - Auth / Security
+        - HUD
+        - Setup / Installation
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any workarounds or other approaches you've thought about?
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Screenshots, examples, or anything else that helps explain.
