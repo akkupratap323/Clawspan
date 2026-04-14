@@ -411,18 +411,17 @@ class ClawspanProcessor(FrameProcessor):
         await _hud_broadcast("idle")
 
 
-# STT keyword boosting helps Deepgram recognise technical terms that sound
-# like common English words (e.g. "pipecat" heard as "pie cut").
+# nova-3 uses `keyterm` (no boost values) instead of `keywords` with `:N` syntax.
 _DEEPGRAM_KEYWORDS: list[str] = [
-    "GitHub:5", "repo:5", "repository:3", "pull request:3",
-    "langchain:5", "pipecat:5", "FastAPI:4", "PyTorch:4",
-    "TensorFlow:4", "LangGraph:4", "CrewAI:4", "OpenAI:4",
-    "DeepSeek:4", "Anthropic:4", "ChromaDB:4", "Ollama:4",
-    "Hugging Face:3", "Next.js:3", "Tailwind:3", "Supabase:3",
-    "track repo:5", "untrack:4", "check releases:4",
-    "list tracked:4", "repo info:4", "star repo:3",
-    "create issue:4", "create PR:4", "pull request:4",
-    "akkupratap323:5", "akkupratap:5",
+    "GitHub", "repo", "repository", "pull request",
+    "langchain", "pipecat", "FastAPI", "PyTorch",
+    "TensorFlow", "LangGraph", "CrewAI", "OpenAI",
+    "DeepSeek", "Anthropic", "ChromaDB", "Ollama",
+    "Hugging Face", "Next.js", "Tailwind", "Supabase",
+    "track repo", "untrack", "check releases",
+    "list tracked", "repo info", "star repo",
+    "create issue", "create PR", "pull request",
+    "akkupratap323", "akkupratap",
 ]
 
 
@@ -443,6 +442,17 @@ async def run_pipeline() -> None:
 
     if not await run_text_auth_gate():
         return
+
+    # Trigger Google OAuth on first run (before pipeline starts so browser
+    # opens in a clean state, not mid-conversation).
+    from config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+    if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET:
+        try:
+            from auth.google import get_credentials
+            await asyncio.to_thread(get_credentials)
+            print("[Auth] Google credentials ready.", flush=True)
+        except Exception as _google_err:
+            print(f"[Auth] Google auth skipped: {_google_err}", flush=True)
 
     play_sound("activated")
 
@@ -476,7 +486,7 @@ async def run_pipeline() -> None:
             language="en",
             model="nova-3",
             smart_format=True,
-            keywords=_DEEPGRAM_KEYWORDS,
+            keyterm=_DEEPGRAM_KEYWORDS,
         ),
     )
 
@@ -607,12 +617,6 @@ async def run_pipeline() -> None:
             asyncio.to_thread(_get_emails),
             asyncio.to_thread(_get_calendar),
         )
-
-        def _open_antigravity() -> None:
-            from tools.apps import open_app
-            open_app("Antigravity")
-
-        asyncio.ensure_future(asyncio.to_thread(_open_antigravity))
 
         briefing_prompt = f"""It is {time_ctx} on {day_name}, {date_str}.
 
