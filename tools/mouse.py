@@ -268,7 +268,7 @@ def find_and_click(target: str, double: bool = False, min_y: int = 0, exact: boo
         except FileNotFoundError as e:
             return str(e)
         action_name = "Double-clicked" if double else "Clicked"
-        return f"{action_name} '{target}' at ({x}, {y})."
+        return f"{action_name} '{target}'."
 
     # 2. GPT Vision
     print(f"[AX] Not found — falling back to GPT Vision...", flush=True)
@@ -285,7 +285,7 @@ def find_and_click(target: str, double: bool = False, min_y: int = 0, exact: boo
             except FileNotFoundError as e:
                 return str(e)
             action_name = "Double-clicked" if double else "Clicked"
-            return f"{action_name} '{target}' at ({x}, {y})."
+            return f"{action_name} '{target}'."
 
         print(f"[Vision] Not found: {vision_result.get('error', '')}", flush=True)
     except Exception as e:
@@ -321,7 +321,7 @@ def find_and_click(target: str, double: bool = False, min_y: int = 0, exact: boo
         except FileNotFoundError as e:
             return str(e)
         action_name = "Double-clicked" if double else "Clicked"
-        return f"{action_name} '{target}' at ({x}, {y})."
+        return f"{action_name} '{target}'."
 
     except Exception as e:
         return f"Vision error: {e}"
@@ -339,7 +339,7 @@ def click(x: int, y: int) -> str:
         _cliclick(f"c:{x},{y}")
     except FileNotFoundError as e:
         return str(e)
-    return f"Clicked at ({x},{y})."
+    return "Clicked."
 
 
 def double_click(x: int, y: int) -> str:
@@ -347,7 +347,7 @@ def double_click(x: int, y: int) -> str:
         _cliclick(f"dc:{x},{y}")
     except FileNotFoundError as e:
         return str(e)
-    return f"Double-clicked at ({x},{y})."
+    return "Double-clicked."
 
 
 def right_click(x: int, y: int) -> str:
@@ -355,7 +355,7 @@ def right_click(x: int, y: int) -> str:
         _cliclick(f"rc:{x},{y}")
     except FileNotFoundError as e:
         return str(e)
-    return f"Right-clicked at ({x},{y})."
+    return "Right-clicked."
 
 
 def move(x: int, y: int) -> str:

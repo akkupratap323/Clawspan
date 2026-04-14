@@ -15,7 +15,7 @@ load_dotenv()
 import openai
 
 
-_MODEL = "gpt-4.1-mini"
+_MODEL = "gpt-4.1"
 
 
 def _get_client() -> openai.OpenAI:
@@ -109,13 +109,16 @@ def find_element_on_screen(target: str, min_y: int = 0) -> dict:
             img_w, img_h = 1440, 900
 
         prompt = (
-            f"Look at this screenshot ({img_w}x{img_h} pixels). "
-            f"Find the UI element that matches: '{target}'\n"
-            f"This could be a button, link, icon, text label, tab, menu item, or any clickable element.\n"
-            f"Return ONLY a JSON object with the CENTER pixel coordinates of that element:\n"
-            f'{{"x": <number>, "y": <number>}}\n'
-            f'If you cannot find it, return: {{"found": false}}\n'
-            f"ONLY output JSON, nothing else."
+            f"This is a screenshot ({img_w}x{img_h} pixels). "
+            f"Find the clickable UI element that best matches: '{target}'\n\n"
+            f"Rules:\n"
+            f"- Return the EXACT center pixel of the button/icon/element itself — not the text label next to it\n"
+            f"- For a play button (triangle icon): return the center of the triangle, not nearby text\n"
+            f"- For a button with text: return the center of the button background, not the edge\n"
+            f"- Be precise — even 20px off can click the wrong thing\n\n"
+            f"Return ONLY this JSON (no explanation, no markdown):\n"
+            f'{{"x": <integer>, "y": <integer>}}\n'
+            f'If the element is not visible, return: {{"found": false}}'
         )
 
         client = _get_client()
