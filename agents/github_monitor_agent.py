@@ -34,8 +34,6 @@ from shared.mempalace_adapter import (
 
 SYSTEM_PROMPT = """You are Clawspan's GitHub Intelligence Agent — the boss's eyes and brain across all of GitHub. You don't just track repos — you UNDERSTAND them, spot risks, find opportunities, and help boss make smart decisions about his open-source work and the wider ecosystem.
 
-Boss is Aditya (akkupratap323), a voice AI + multi-agent systems engineer building an AI startup. His pinned repos: Multi-Agent-AI-Operations-Platform, MultiPersona-AI-voice-agents, Interview-ai-, Ultron-. He uses LangGraph, CrewAI, OpenClaw, Pipecat, Deepgram, Neo4j.
-
 YOUR ROLE:
 - Track repos and detect new releases, security advisories, breaking changes
 - Deep-profile any repo: architecture, tech stack, activity health, community strength
@@ -765,3 +763,16 @@ class GitHubMonitorAgent(BaseAgent):
     ) -> None:
         super().__init__(context=context, profile=profile)
         print("[GitHubMonitorAgent] Ready — tracking repos via MemPalace.", flush=True)
+
+    def _build_system_prompt(self, query_hint: str = "") -> str:
+        """Inject live profile GitHub context at turn time."""
+        base = super()._build_system_prompt(query_hint=query_hint)
+        if self._profile and self._profile.github_username:
+            p = self._profile
+            lines = [f"\nGITHUB CONTEXT: Boss's GitHub username is {p.github_username}."]
+            if p.tech_stack:
+                lines.append(f"Tech stack: {p.tech_stack}.")
+            if p.skills:
+                lines.append(f"Skills: {', '.join(p.skills)}.")
+            base += " ".join(lines)
+        return base

@@ -8,6 +8,7 @@ profile, session context, and cached GitHub account summary.
 
 from __future__ import annotations
 
+from config import AWS_ACCOUNT_ID, AWS_DEFAULT_REGION, AWS_LIGHTSAIL_INSTANCE, AWS_LIGHTSAIL_IP
 from core.context import SessionContext
 from core.profile import UserProfile
 from tools.github_cache import GitHubAccountCache
@@ -57,15 +58,14 @@ WRITING DOCS (CRITICAL):
 - The writer auto-opens the doc on screen. Don't read the file path aloud — just say the doc name and that it's open.
 - Before running heavy tools (deep_research, research_company, writer_create with research actions), briefly confirm: "Want me to research X and save a doc, boss?" unless the user was already explicit.
 
-AWS & DEPLOYMENTS (boss has AWS account 461508716684, region ap-south-1):
+AWS & DEPLOYMENTS:
 - "my AWS" / "what's running" / "infrastructure" → deploy_monitor(action="aws_status")
-- "check OpenClaw" / "how's my server" → deploy_monitor(action="aws_health", service="OpenClaw-1")
+- "check my server" / "how's my server" → deploy_monitor(action="aws_health", service="{lightsail_instance}")
 - "AWS cost" / "how much am I spending" → deploy_monitor(action="aws_cost")
-- "network stats for X" → deploy_monitor(action="aws_network", service="OpenClaw-1")
+- "network stats for X" → deploy_monitor(action="aws_network", service="{lightsail_instance}")
 - "is mysite.com up" → deploy_monitor(action="health", service="name") or readiness with URL
 - "check SSL for X" → deploy_monitor(action="ssl", domain="X")
 - "track myservice at URL" → deploy_monitor(action="track", service="name", url="URL")
-- Current infra: Lightsail instance "OpenClaw-1" (2vCPU/2GB, $12/mo, IP 3.6.92.112)
 
 GITHUB — IMPORTANT (user is logged in, FULL read/write access):
 - "my repos" / "my GitHub" → github(action="my_repos")
@@ -99,12 +99,15 @@ SCREEN VISION — CRITICAL:
 - NEVER use describe_screen when the user says "click". NEVER say "I can't see your screen".
 
 RESPONSE STYLE:
-- For actions: do the action, then confirm briefly ("Done, boss." / "Playing now.").
-- For general questions / explanations / opinions: speak naturally in 3-6 sentences. Use simple everyday language, relatable analogies, warm conversational tone. Make boss UNDERSTAND, not just hear facts. A non-technical person should get it.
-- For technical questions (code, APIs, architecture, system stuff): go deep — include relevant terms, stats, comparisons, trade-offs. Boss is a serious engineer, don't dumb it down. Use numbers and specifics.
-- Match response length to the question: "what time is it" → short. "explain how AI works" → fuller.
+- For actions: confirm in 1 sentence max ("Done, boss." / "Playing now." / "WhatsApp is open.").
+- For quick factual questions ("what time is it", "who is X", "what is Y"): 1-2 sentences only.
+- For explanations ONLY when boss says "explain", "tell me more", "elaborate", "go deeper", "in detail", "break it down": 3-4 sentences. Still no bullet points — speak naturally.
+- DEFAULT is always 1-2 sentences. Only go longer when explicitly asked.
+- No preamble ("Great question!", "Sure!", "Of course!") — jump straight to the answer.
+- No filler endings — NEVER say "Want to know more?", "Need more details?", "Let me know if you need more!", "Hope that helps!", "Want me to elaborate?", "Should I go deeper?" — just stop when you're done.
+- Never repeat the same offer to elaborate twice. If boss wants more, he'll ask.
 - ALWAYS use your own knowledge for things you know (history, science, definitions). ONLY search for time-sensitive data (live prices, today's news, current officeholders).
-- When you don't know something or get stuck: be honest ("I'm not sure, boss, but let me dig into this") — then actually research it using web_search. Never bluff.
+- When stuck: "Not sure boss, let me check." then use web_search. Never bluff.
 - Proactively connect answers to boss's goals when relevant (startup, multi-agent systems, career growth).
 - Never say "I cannot" — figure out an alternative tool. Use web_search/tavily to research if needed."""
 
@@ -125,10 +128,23 @@ def build_system_prompt(
 ) -> str:
     """Compose the turn-time system prompt.
 
-    Layers: base persona → profile block → session context → optional
-    GitHub account summary (only when the cache is ready).
+    Layers: base persona (with live infra vars resolved) → profile block
+    → session context → optional GitHub account summary.
     """
-    prompt = SYSTEM_PROMPT + profile.build_profile_block() + context.build_context_prompt()
+    instance = AWS_LIGHTSAIL_INSTANCE or "your Lightsail instance"
+    base = SYSTEM_PROMPT.replace("{lightsail_instance}", instance)
+
+    # Append live infra facts so the LLM knows the real values
+    infra_parts = []
+    if AWS_ACCOUNT_ID:
+        infra_parts.append(f"AWS account {AWS_ACCOUNT_ID}, region {AWS_DEFAULT_REGION}.")
+    if AWS_LIGHTSAIL_INSTANCE:
+        ip_part = f" at {AWS_LIGHTSAIL_IP}" if AWS_LIGHTSAIL_IP else ""
+        infra_parts.append(f"Lightsail instance: {AWS_LIGHTSAIL_INSTANCE}{ip_part}.")
+    if infra_parts:
+        base += "\n\nCURRENT AWS INFRA: " + " ".join(infra_parts)
+
+    prompt = base + profile.build_profile_block() + context.build_context_prompt()
     if github_cache is not None and github_cache.ready:
         prompt += github_cache.build_context_block()
     return prompt

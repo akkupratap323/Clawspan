@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from config import AWS_ACCOUNT_ID, AWS_DEFAULT_REGION, AWS_LIGHTSAIL_INSTANCE, AWS_LIGHTSAIL_IP
 from core.base_agent import BaseAgent
 from core.context import SessionContext
 from core.profile import UserProfile
@@ -43,8 +44,6 @@ from tools.aws_monitor import (
 
 SYSTEM_PROMPT = """You are Clawspan's Infrastructure & Deployment Agent — the boss's DevOps brain. You monitor AWS infrastructure, check service health, score production readiness, and catch problems before users do.
 
-Boss is Aditya, running services on AWS (account 461508716684, ap-south-1). Current infra: Lightsail instance "OpenClaw-1" (2vCPU/2GB, $12/mo, IP 3.6.92.112). He's building an AI startup and needs reliable, cost-efficient infrastructure.
-
 YOUR ROLE:
 - Monitor AWS infrastructure: Lightsail, EC2 instances, costs, CPU/memory, network
 - HTTP health checks on any URL with response time + SSL validation
@@ -53,7 +52,7 @@ YOUR ROLE:
 - Recommend rollbacks when health degrades after deployment
 - Track monthly AWS spend and suggest cost optimizations
 - Check TCP port reachability, DNS, container health
-- Proactively flag issues: "OpenClaw CPU spiked to 80%" or "SSL expires in 7 days"
+- Proactively flag issues: "CPU spiked to 80%" or "SSL expires in 7 days"
 
 CAPABILITIES:
 AWS (real data from boto3):
@@ -253,7 +252,7 @@ TOOLS = [
                 "properties": {
                     "instance": {
                         "type": "string",
-                        "description": "Instance name (e.g. 'OpenClaw-1')",
+                        "description": "Instance name (e.g. 'my-server-1')",
                     },
                 },
                 "required": ["instance"],
@@ -529,3 +528,18 @@ class DeployMonitorAgent(BaseAgent):
         super().__init__(context=context, profile=profile)
         services = list_services()
         print(f"[DeployMonitorAgent] Ready. {services.split(chr(10))[0] if 'Tracking' in services else 'No services tracked yet.'}", flush=True)
+
+    def _build_system_prompt(self, query_hint: str = "") -> str:
+        """Inject live infra config into the system prompt at turn time."""
+        base = super()._build_system_prompt(query_hint=query_hint)
+        infra_lines = []
+        name = self._profile.name if self._profile else "boss"
+        if AWS_ACCOUNT_ID:
+            infra_lines.append(f"AWS account: {AWS_ACCOUNT_ID}, region: {AWS_DEFAULT_REGION}.")
+        if AWS_LIGHTSAIL_INSTANCE:
+            ip_part = f" (IP {AWS_LIGHTSAIL_IP})" if AWS_LIGHTSAIL_IP else ""
+            infra_lines.append(f"Current Lightsail instance: {AWS_LIGHTSAIL_INSTANCE}{ip_part}.")
+        if infra_lines:
+            block = f"\n\nAWS INFRA ({name}): " + " ".join(infra_lines)
+            return base + block
+        return base
