@@ -545,7 +545,7 @@ async def run_pipeline() -> None:
                 params=VADParams(
                     confidence=0.6,    # was 0.7 — less strict, catches softer speech
                     start_secs=0.2,
-                    stop_secs=0.5,     # 0.5s silence → VAD says stopped
+                    stop_secs=0.2,     # pipecat recommended default — must be < ttfs_p99_latency (0.3s)
                     min_volume=0.5,    # was 0.6 — don't drop quieter speech
                 )
             ),
