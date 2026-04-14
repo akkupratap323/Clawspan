@@ -32,6 +32,14 @@ CARTESIA_VOICE_ID = os.getenv(
     "694f9389-aac1-45b6-b726-9d9369183238"  # British Clawspan-like voice
 )
 
+# ─── AWS Infrastructure ───────────────────────────────────────────────────────
+# Set these via environment variables or .env — never hardcode in source.
+
+AWS_ACCOUNT_ID          = os.getenv("AWS_ACCOUNT_ID", "")
+AWS_DEFAULT_REGION      = os.getenv("AWS_DEFAULT_REGION", "ap-south-1")
+AWS_LIGHTSAIL_INSTANCE  = os.getenv("AWS_LIGHTSAIL_INSTANCE", "")
+AWS_LIGHTSAIL_IP        = os.getenv("AWS_LIGHTSAIL_IP", "")
+
 # ─── Audio Settings ──────────────────────────────────────────────────────────
 
 SILENCE_TIMEOUT    = 2.5
