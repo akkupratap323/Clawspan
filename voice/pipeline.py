@@ -237,6 +237,28 @@ class ClawspanProcessor(FrameProcessor):
         m = _WRITER_SAVED_PATH.search(raw)
         return m.group(1).strip() if m else None
 
+    # Explicit phrases that mean "give me more depth" — must be intentional ask,
+    # not just any question. Kept tight so casual questions stay short.
+    _EXPLAIN_TRIGGERS = frozenset({
+        "explain", "elaborate", "tell me more", "go deeper", "in detail",
+        "break it down", "break down", "more detail", "deep dive",
+        "walk me through", "describe", "clarify", "expand on",
+        "want to know more", "want more", "more about", "tell me about",
+        "can you explain", "could you explain", "please explain",
+        "give me more", "know more", "go into", "dive into",
+        "how exactly", "why exactly", "help me understand",
+    })
+
+    @staticmethod
+    def _wants_detail(text: str) -> bool:
+        """Return True only when the user explicitly asks for more depth.
+
+        Uses whole-phrase matching so "what is the time" doesn't trigger
+        detail mode, but "explain what is happening" does.
+        """
+        t = text.lower().strip()
+        return any(trigger in t for trigger in ClawspanProcessor._EXPLAIN_TRIGGERS)
+
     async def _handle_turn(self, user_text: str, direction) -> None:
         """Run one streaming LLM turn, push sentences to TTS, queue tool calls."""
         self._history.append({"role": "user", "content": user_text})
@@ -251,13 +273,16 @@ class ClawspanProcessor(FrameProcessor):
             system_content += mem_ctx
         messages = [{"role": "system", "content": system_content}] + self._history
 
+        # Default: 1-2 sentences (120 tokens). Explain mode: 3-4 sentences (280 tokens).
+        max_tokens = 280 if self._wants_detail(user_text) else 120
+
         try:
             stream = await self._client.chat.completions.create(
                 model="gpt-4.1",
                 messages=messages,
                 tools=tools.TOOLS,
                 tool_choice="auto",
-                max_tokens=300,
+                max_tokens=max_tokens,
                 temperature=0.7,
                 stream=True,
             )
@@ -512,7 +537,7 @@ async def run_pipeline() -> None:
                 params=VADParams(
                     confidence=0.7,
                     start_secs=0.2,
-                    stop_secs=0.2,
+                    stop_secs=0.4,   # was 0.2 — less aggressive mid-sentence cuts
                     min_volume=0.6,
                 )
             ),
@@ -523,11 +548,11 @@ async def run_pipeline() -> None:
             user_turn_strategies=UserTurnStrategies(
                 start=[
                     VADUserTurnStartStrategy(),
-                    MinWordsUserTurnStartStrategy(min_words=1),
+                    MinWordsUserTurnStartStrategy(min_words=3),  # was 1 — stops single-word fragment turns
                 ],
                 stop=[
                     TurnAnalyzerUserTurnStopStrategy(turn_analyzer=LocalSmartTurnAnalyzerV3()),
-                    SpeechTimeoutUserTurnStopStrategy(user_speech_timeout=1.0),
+                    SpeechTimeoutUserTurnStopStrategy(user_speech_timeout=2.5),  # was 1.0 — more breathing room
                 ],
             ),
         ),
