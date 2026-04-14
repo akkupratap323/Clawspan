@@ -1,22 +1,42 @@
-"""
-DeepCoderAgent — DeepSeek-powered coding/research/automation agent with MCP tools.
+"""DeepCoderAgent — DeepSeek-powered coding/research/automation agent.
 
-Uses DeepSeek V3 (same as other agents) for fast responses (2-3s).
-Has access to all MCP tools via Claude Code CLI when needed for
-complex multi-step tasks (GitHub, Playwright, Filesystem, Memory, Tavily).
+Inherits the full tool-calling loop, DSML recovery, memory injection,
+fact extraction, and response filtering from BaseAgent.  Only the LLM
+client (DeepSeek endpoint) and the extra `run_qwen_task` tool are
+specific to this agent.
 
 Handles: coding, file ops, GitHub, web automation, deep research, scripts.
+
+Session persistence for run_qwen_task
+--------------------------------------
+Qwen CLI supports --resume <session-id> to continue an existing session
+instead of cold-starting a new one every call.  We store the last session
+ID in _qwen_session_id and pass --resume on every call after the first,
+so the Qwen process reuses its already-loaded context, MCP servers, and
+Playwright state — no repeated cold starts within a single Clawspan run.
 """
 
-import os
-import json
-import asyncio
-import subprocess
-from openai import AsyncOpenAI
-from config import DEEPSEEK_API_KEY, DEEPSEEK_MODEL, DEEPSEEK_BASE_URL, GITHUB_TOKEN, TAVILY_API_KEY
+from __future__ import annotations
 
-# Root of the project — resolves correctly regardless of where it's installed
+import os
+import re
+import subprocess
+
+from openai import AsyncOpenAI
+
+from config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL, DEEPSEEK_MODEL, GITHUB_TOKEN, TAVILY_API_KEY
+from core.base_agent import BaseAgent
+from tools.terminal import run as run_terminal
+
+# Root of the project — resolves correctly regardless of install location
 CLAWSPAN_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# Persisted across calls within this process — avoids cold-starting Qwen
+# every time run_qwen_task is invoked.
+_qwen_session_id: str | None = None
+
+# Qwen prints the session ID in its output as: "Session ID: <id>"
+_SESSION_ID_RE = re.compile(r"session[_\s-]?id[:\s]+([a-zA-Z0-9_-]+)", re.IGNORECASE)
 
 SYSTEM_PROMPT = """You are Clawspan's specialist coding and automation agent, powered by DeepSeek.
 
@@ -25,30 +45,29 @@ web automation, file operations, deep research, installing packages, running tes
 
 YOUR CAPABILITIES:
 - Run any bash/terminal command via run_bash tool
-- Read/write/edit any file via file_tool
+- Read/write/edit any file via read_file / write_file
 - Search the web with high quality via tavily_search tool
 - Execute complex multi-step coding tasks
 - GitHub operations (commit, push, PR) via bash git commands
 - Install packages, run tests, debug code
+- Delegate complex browser/GitHub MCP tasks to Qwen Code via run_qwen_task
 
 RESPONSE RULES (responses are spoken aloud — keep SHORT):
 - Maximum 2 sentences
 - Always ACT using tools — never just describe
 - Report what you DID, not what you plan to do
-- Be direct and fast
-
-WORKING DIRECTORY: {project root (auto-detected)}"""
+- Be direct and fast"""
 
 TOOLS = [
     {
         "type": "function",
         "function": {
             "name": "run_bash",
-            "description": "Run any bash/terminal command. Use for: git, pip install, running scripts, file operations, checking system info.",
+            "description": "Run any bash/terminal command.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "command": {"type": "string", "description": "The bash command to run"},
+                    "command": {"type": "string"},
                 },
                 "required": ["command"],
             },
@@ -62,7 +81,7 @@ TOOLS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "path": {"type": "string", "description": "File path to read"},
+                    "path": {"type": "string"},
                 },
                 "required": ["path"],
             },
@@ -76,8 +95,8 @@ TOOLS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "path": {"type": "string", "description": "File path to write"},
-                    "content": {"type": "string", "description": "Content to write"},
+                    "path": {"type": "string"},
+                    "content": {"type": "string"},
                 },
                 "required": ["path", "content"],
             },
@@ -87,11 +106,11 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "tavily_search",
-            "description": "High-quality web search for current real-world information: news, weather, prices, facts.",
+            "description": "High-quality web search for current information.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "query": {"type": "string", "description": "Search query"},
+                    "query": {"type": "string"},
                 },
                 "required": ["query"],
             },
@@ -100,12 +119,18 @@ TOOLS = [
     {
         "type": "function",
         "function": {
-            "name": "run_claude_task",
-            "description": "Delegate complex multi-step tasks to Claude Code CLI which has Playwright browser control, GitHub MCP, and filesystem MCP. Use for: clicking in Google Drive, complex browser automation, advanced GitHub operations.",
+            "name": "run_qwen_task",
+            "description": (
+                "Delegate complex multi-step tasks to Qwen Code CLI which has "
+                "Playwright browser control, GitHub MCP, and filesystem MCP. "
+                "Reuses a persistent session — no cold start after the first call. "
+                "Use for: clicking in Google Drive, complex browser automation, "
+                "advanced GitHub operations, multi-step file edits."
+            ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "task": {"type": "string", "description": "The task for Claude Code to execute"},
+                    "task": {"type": "string", "description": "The task for Qwen Code to execute"},
                 },
                 "required": ["task"],
             },
@@ -114,156 +139,119 @@ TOOLS = [
 ]
 
 
-def _run_bash(command: str) -> str:
-    try:
-        result = subprocess.run(
-            command, shell=True, capture_output=True, text=True,
-            timeout=30, cwd=CLAWSPAN_DIR
-        )
-        out = (result.stdout + result.stderr).strip()
-        return out[:1000] if out else "Command completed with no output."
-    except subprocess.TimeoutExpired:
-        return "Command timed out."
-    except Exception as e:
-        return f"Error: {e}"
+# ── Tool implementations ──────────────────────────────────────────────────────
+
+def _run_bash(args: dict) -> str:
+    return run_terminal(args["command"])
 
 
-def _read_file(path: str) -> str:
+def _read_file(args: dict) -> str:
+    path = os.path.expanduser(args["path"])
     try:
-        path = os.path.expanduser(path)
-        with open(path, "r") as f:
+        with open(path) as f:
             content = f.read()
         return content[:3000] if len(content) > 3000 else content
     except Exception as e:
         return f"Error reading file: {e}"
 
 
-def _write_file(path: str, content: str) -> str:
+def _write_file(args: dict) -> str:
+    path = os.path.expanduser(args["path"])
+    parent = os.path.dirname(path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
     try:
-        path = os.path.expanduser(path)
-        os.makedirs(os.path.dirname(path), exist_ok=True) if os.path.dirname(path) else None
         with open(path, "w") as f:
-            f.write(content)
+            f.write(args["content"])
         return f"Written to {path} successfully."
     except Exception as e:
         return f"Error writing file: {e}"
 
 
-def _tavily_search(query: str) -> str:
-    try:
-        import urllib.request
-        import json as _json
-        payload = _json.dumps({
-            "api_key": TAVILY_API_KEY,
-            "query": query,
-            "search_depth": "basic",
-            "max_results": 3,
-        }).encode()
-        req = urllib.request.Request(
-            "https://api.tavily.com/search",
-            data=payload,
-            headers={"Content-Type": "application/json"},
-        )
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            data = _json.loads(resp.read())
-        results = data.get("results", [])
-        if not results:
-            return "No results found."
-        lines = []
-        for r in results[:3]:
-            lines.append(f"{r.get('title','')}: {r.get('content','')[:200]}")
-        return "\n".join(lines)
-    except Exception as e:
-        return f"Search error: {e}"
+def _tavily_search(args: dict) -> str:
+    from tools.search import tavily_search
+    return tavily_search(args["query"])
 
 
-def _run_claude_task(task: str) -> str:
+def _run_qwen_task(args: dict) -> str:
+    """Run a task via Qwen Code CLI, reusing the session from the previous call.
+
+    First call: cold-starts Qwen, captures the session ID from output.
+    Subsequent calls: passes --resume <session_id> — Qwen reloads the
+    existing session instead of initialising from scratch, saving 3-8s.
+    """
+    global _qwen_session_id
+
+    task = args["task"]
+    env = os.environ.copy()
+    env["GITHUB_PERSONAL_ACCESS_TOKEN"] = GITHUB_TOKEN
+    env["TAVILY_API_KEY"] = TAVILY_API_KEY
+
+    cmd = [
+        "qwen",
+        "--yolo",                        # auto-approve all actions (no human in loop)
+        "--output-format", "text",       # clean plain-text output
+        "--tavily-api-key", TAVILY_API_KEY,
+    ]
+
+    if _qwen_session_id:
+        # Resume the existing session — avoids cold start
+        cmd += ["--resume", _qwen_session_id]
+        print(f"[QwenTask] Resuming session {_qwen_session_id}", flush=True)
+    else:
+        print("[QwenTask] Starting new session (first call)", flush=True)
+
+    cmd.append(task)  # positional prompt — one-shot non-interactive mode
+
     try:
-        env = os.environ.copy()
-        env["CLAUDECODE"] = ""
-        env["GITHUB_PERSONAL_ACCESS_TOKEN"] = GITHUB_TOKEN
-        env["TAVILY_API_KEY"] = TAVILY_API_KEY
         result = subprocess.run(
-            ["claude", "--print", "--dangerously-skip-permissions", task],
+            cmd,
             capture_output=True, text=True, timeout=120,
-            cwd=CLAWSPAN_DIR, env=env
+            cwd=CLAWSPAN_DIR, env=env,
         )
-        return result.stdout.strip()[:1000] or "Task completed."
+        output = result.stdout.strip()
+
+        # Extract and persist the session ID for future calls
+        m = _SESSION_ID_RE.search(output)
+        if m:
+            _qwen_session_id = m.group(1)
+            print(f"[QwenTask] Session ID captured: {_qwen_session_id}", flush=True)
+
+        if result.returncode != 0 and result.stderr:
+            err = result.stderr.strip()[:300]
+            print(f"[QwenTask] stderr: {err}", flush=True)
+
+        return output[:1500] or "Task completed."
+    except subprocess.TimeoutExpired:
+        return "Qwen task timed out after 120s."
+    except FileNotFoundError:
+        return "Qwen CLI not found. Install with: bash -c \"$(curl -fsSL https://qwen-code-assets.oss-cn-hangzhou.aliyuncs.com/installation/install-qwen.sh)\" -s --source qwenchat"
     except Exception as e:
-        return f"Claude task error: {e}"
+        return f"Qwen task error: {e}"
 
 
-def _execute_tool(name: str, args: dict) -> str:
-    if name == "run_bash":
-        return _run_bash(args["command"])
-    elif name == "read_file":
-        return _read_file(args["path"])
-    elif name == "write_file":
-        return _write_file(args["path"], args["content"])
-    elif name == "tavily_search":
-        return _tavily_search(args["query"])
-    elif name == "run_claude_task":
-        return _run_claude_task(args["task"])
-    return "Unknown tool."
+# ── Agent class ───────────────────────────────────────────────────────────────
 
+class DeepCoderAgent(BaseAgent):
+    name = "DeepCoderAgent"
+    SYSTEM_PROMPT = SYSTEM_PROMPT
+    TOOLS = TOOLS
+    TOOL_MAP = {
+        "run_bash": _run_bash,
+        "read_file": _read_file,
+        "write_file": _write_file,
+        "tavily_search": _tavily_search,
+        "run_qwen_task": _run_qwen_task,
+    }
+    temperature = 0.1
+    max_tool_rounds = 8
 
-class CodingAgent:
-    def __init__(self):
-        self._client = AsyncOpenAI(api_key=DEEPSEEK_API_KEY, base_url=DEEPSEEK_BASE_URL)
-        self._model = DEEPSEEK_MODEL
-        self._history: list[dict] = []
-        print("[CodingAgent] Ready — DeepSeek powered, tools: bash/files/tavily/playwright/github.")
-
-    async def think(self, user_input: str, context: str = "") -> str:
-        # Add user message to history (keeps context across turns)
-        if context:
-            user_input = f"{context}\n\n{user_input}"
-        self._history.append({"role": "user", "content": user_input})
-
-        messages = [{"role": "system", "content": SYSTEM_PROMPT}] + self._history[-10:]
-
-        loop = asyncio.get_event_loop()
-
-        # Agentic loop — keep calling tools until final response
-        for _ in range(8):  # max 8 tool calls per request
-            try:
-                response = await self._client.chat.completions.create(
-                    model=self._model,
-                    messages=messages,
-                    tools=TOOLS,
-                    tool_choice="auto",
-                    max_tokens=1024,
-                    temperature=0.1,
-                )
-            except Exception as e:
-                return f"DeepSeek error: {e}"
-
-            msg = response.choices[0].message
-            messages.append({"role": "assistant", "content": msg.content or "", "tool_calls": [
-                {"id": tc.id, "type": "function", "function": {"name": tc.function.name, "arguments": tc.function.arguments}}
-                for tc in (msg.tool_calls or [])
-            ]})
-
-            # No tool calls — final response
-            if not msg.tool_calls:
-                reply = (msg.content or "Done, sir.").strip()
-                self._history.append({"role": "assistant", "content": reply})
-                return reply
-
-            # Execute all tool calls
-            for tc in msg.tool_calls:
-                try:
-                    args = json.loads(tc.function.arguments)
-                except Exception:
-                    args = {}
-
-                print(f"[CodingAgent] {tc.function.name}({list(args.keys())})")
-                result = await loop.run_in_executor(None, _execute_tool, tc.function.name, args)
-
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tc.id,
-                    "content": result,
-                })
-
-        return "Task completed, sir."
+    def __init__(self, context=None, profile=None) -> None:
+        client = AsyncOpenAI(api_key=DEEPSEEK_API_KEY, base_url=DEEPSEEK_BASE_URL)
+        super().__init__(
+            context=context,
+            profile=profile,
+            llm_client=client,
+            llm_model=DEEPSEEK_MODEL,
+        )
+        print("[DeepCoderAgent] Ready — DeepSeek powered, tools: bash/files/tavily/qwen-task.", flush=True)
