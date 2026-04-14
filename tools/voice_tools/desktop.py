@@ -7,7 +7,9 @@ from tools.vision import describe_screen
 
 
 def exec_finder_control(action: str, name: str = "", app: str = "", **_kw) -> str:
-    """Finder/file operations (open, open_in_app, list, get_desktop_items, delete)."""
+    """Finder/file operations (find, open, list, read_file, open_in_app, get_desktop_items, delete).
+    Searches Spotlight when a literal path is not found.
+    """
     return finder.control(action, name, app)
 
 

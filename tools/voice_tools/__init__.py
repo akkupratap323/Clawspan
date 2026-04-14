@@ -176,7 +176,7 @@ TOOLS: list[dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "finder_control",
-            "description": "File/folder operations. Actions: open, open_in_app, list, get_desktop_items, delete.",
+            "description": "File/folder operations. Actions: open, list, read_file, find, open_in_app, get_desktop_items, delete. Use 'find' to locate a folder/file by name anywhere on disk. Use 'list' to see contents. Use 'read_file' to read a file like README.md. Searches Spotlight — never fails on path not found.",
             "parameters": {"type": "object", "properties": {"action": {"type": "string"}, "name": {"type": "string"}, "app": {"type": "string"}}, "required": ["action"]},
         },
     },
