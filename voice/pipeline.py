@@ -20,7 +20,6 @@ import re
 from loguru import logger
 from openai import AsyncOpenAI
 
-from pipecat.audio.turn.smart_turn.local_smart_turn_v3 import LocalSmartTurnAnalyzerV3
 from pipecat.audio.vad.silero import SileroVADAnalyzer
 from pipecat.audio.vad.vad_analyzer import VADParams
 from pipecat.frames.frames import LLMContextFrame, TextFrame
@@ -43,7 +42,6 @@ from pipecat.turns.user_mute.mute_until_first_bot_complete_user_mute_strategy im
 from pipecat.turns.user_start.min_words_user_turn_start_strategy import MinWordsUserTurnStartStrategy
 from pipecat.turns.user_start.vad_user_turn_start_strategy import VADUserTurnStartStrategy
 from pipecat.turns.user_stop.speech_timeout_user_turn_stop_strategy import SpeechTimeoutUserTurnStopStrategy
-from pipecat.turns.user_stop.turn_analyzer_user_turn_stop_strategy import TurnAnalyzerUserTurnStopStrategy
 from pipecat.turns.user_turn_strategies import UserTurnStrategies
 
 import clawspan_tools as tools
@@ -535,24 +533,26 @@ async def run_pipeline() -> None:
         user_params=LLMUserAggregatorParams(
             vad_analyzer=SileroVADAnalyzer(
                 params=VADParams(
-                    confidence=0.7,
+                    confidence=0.6,    # was 0.7 — less strict, catches softer speech
                     start_secs=0.2,
-                    stop_secs=0.4,   # was 0.2 — less aggressive mid-sentence cuts
-                    min_volume=0.6,
+                    stop_secs=0.8,     # was 0.4 — needs 0.8s silence before VAD says stopped
+                    min_volume=0.5,    # was 0.6 — don't drop quieter speech
                 )
             ),
             user_mute_strategies=[
                 MuteUntilFirstBotCompleteUserMuteStrategy(),
-                PostSpeechMuteStrategy(post_speech_secs=1.0),
+                PostSpeechMuteStrategy(post_speech_secs=0.3),  # was 1.0 — can talk sooner after bot speaks
             ],
             user_turn_strategies=UserTurnStrategies(
                 start=[
                     VADUserTurnStartStrategy(),
-                    MinWordsUserTurnStartStrategy(min_words=3),  # was 1 — stops single-word fragment turns
+                    MinWordsUserTurnStartStrategy(min_words=2),  # was 3 — don't drop 2-word commands
                 ],
                 stop=[
-                    TurnAnalyzerUserTurnStopStrategy(turn_analyzer=LocalSmartTurnAnalyzerV3()),
-                    SpeechTimeoutUserTurnStopStrategy(user_speech_timeout=2.5),  # was 1.0 — more breathing room
+                    # TurnAnalyzerUserTurnStopStrategy removed — SmartTurn fires too early on
+                    # mid-sentence pauses, cutting turns after ~2s even when user is still speaking.
+                    # SpeechTimeout alone is more predictable for conversational voice.
+                    SpeechTimeoutUserTurnStopStrategy(user_speech_timeout=3.0),  # was 2.5 — full 3s pause = done
                 ],
             ),
         ),
