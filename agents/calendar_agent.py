@@ -208,7 +208,7 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "gmail_read",
-            "description": "Read recent emails. Use query for filtering (e.g. 'is:unread', 'from:boss@company.com').",
+            "description": "Read recent emails. Use query for filtering (e.g. 'is:unread', 'from:contact@example.com').",
             "parameters": {
                 "type": "object",
                 "properties": {

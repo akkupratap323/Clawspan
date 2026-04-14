@@ -10,7 +10,7 @@
 
 **Please do not open a public GitHub issue for security vulnerabilities.**
 
-Email: open a [GitHub Security Advisory](https://github.com/your-username/jarvis/security/advisories/new) (private disclosure).
+Email: open a [GitHub Security Advisory](https://github.com/akkupratap323/clawspan/security/advisories/new) (private disclosure).
 
 Include:
 - Description of the vulnerability
@@ -22,9 +22,9 @@ We will acknowledge within 48 hours and aim to patch critical issues within 7 da
 
 ## Threat model
 
-JARVIS runs locally on your machine. It is **not** designed to be exposed to the internet. Key assumptions:
+Clawspan runs locally on your machine. It is **not** designed to be exposed to the internet. Key assumptions:
 
-- The machine running JARVIS is trusted and access-controlled.
+- The machine running Clawspan is trusted and access-controlled.
 - API keys in `.env` are secrets — never commit `.env` to version control.
 - The voice passphrase gate is a convenience lock, not a strong authentication mechanism. Do not rely on it as your only security layer.
 - The `tools/terminal.py` command executor uses an allowlist. Only extend it with commands you trust.

@@ -15,22 +15,22 @@ from typing import Any
 PROFILE_PATH = os.path.expanduser("~/.clawspan_profile.json")
 
 DEFAULT_PROFILE = {
-    "name": "Aditya",
-    "timezone": "Asia/Kolkata",
+    "name": "Boss",
+    "timezone": "UTC",
     "wake_time": "07:00",
     "work_hours": {"start": "09:00", "end": "18:00"},
     "preferred_browser": "Chrome",
     "preferred_editor": "VS Code",
     "preferred_music_app": "YouTube Music",
     "communication_style": "casual",  # casual | formal | terse
-    "key_contacts": {},  # {"rahul": "rahul@company.com", "boss": "boss@company.com"}
+    "key_contacts": {},  # {"name": "email@example.com"}
 }
 
 
 @dataclass
 class UserProfile:
-    name: str = "Aditya"
-    timezone: str = "Asia/Kolkata"
+    name: str = "Boss"
+    timezone: str = "UTC"
     wake_time: str = "07:00"
     work_hours: dict = field(default_factory=lambda: {"start": "09:00", "end": "18:00"})
     preferred_browser: str = "Chrome"
@@ -96,7 +96,7 @@ class UserProfile:
         return self._learned.get(key, default)
 
     def resolve_contact(self, name: str) -> str | None:
-        """Resolve a person's name to their email. e.g. 'email Rahul' → rahul@company.com"""
+        """Resolve a person's name to their email. e.g. 'email Rahul' → name@example.com"""
         name_lower = name.lower().strip()
         # Direct match
         if name_lower in self.key_contacts:
