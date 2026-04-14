@@ -10,6 +10,29 @@ import time
 
 CLICLICK = "/opt/homebrew/bin/cliclick"
 
+_NO_DISPLAY_MSG = (
+    "No display available — screencapture and mouse control require "
+    "a local macOS session (not SSH/headless). Connect via the local machine."
+)
+_NO_CLICLICK_MSG = (
+    "cliclick not found at /opt/homebrew/bin/cliclick. "
+    "Install with: brew install cliclick"
+)
+
+
+def _check_display() -> str | None:
+    """Return an error string if no display is available, else None."""
+    if not os.environ.get("HOME") or os.environ.get("SSH_TTY") or os.environ.get("SSH_CONNECTION"):
+        return _NO_DISPLAY_MSG
+    return None
+
+
+def _cliclick(*args) -> subprocess.CompletedProcess:
+    """Run cliclick, raising a clear error if it is not installed."""
+    if not os.path.exists(CLICLICK):
+        raise FileNotFoundError(_NO_CLICLICK_MSG)
+    return subprocess.run([CLICLICK, *args], capture_output=True)
+
 # ── AX Tree (instant, ~20ms) ────────────────────────────────────────────────
 
 _AX_FRAME_RE = re.compile(r'x:([\d.]+).*?y:([\d.]+).*?w:([\d.]+).*?h:([\d.]+)')
@@ -228,6 +251,10 @@ def find_and_click(target: str, double: bool = False, min_y: int = 0, exact: boo
     2. GPT-4.1-mini Vision — full UI understanding (~1-2s)
     3. macOS Vision OCR — text matching fallback
     """
+    err = _check_display()
+    if err:
+        return err
+
     # 1. AX tree
     print(f"[AX] Looking for '{target}'...", flush=True)
     ax_result = ax_find(target, exact=exact, min_y=min_y)
@@ -236,7 +263,10 @@ def find_and_click(target: str, double: bool = False, min_y: int = 0, exact: boo
         x, y = ax_result["x"], ax_result["y"]
         print(f"[AX] Found '{ax_result['text']}' at ({x},{y})", flush=True)
         click_cmd = f"dc:{x},{y}" if double else f"c:{x},{y}"
-        subprocess.run([CLICLICK, click_cmd], capture_output=True)
+        try:
+            _cliclick(click_cmd)
+        except FileNotFoundError as e:
+            return str(e)
         action_name = "Double-clicked" if double else "Clicked"
         return f"{action_name} '{target}' at ({x}, {y})."
 
@@ -250,7 +280,10 @@ def find_and_click(target: str, double: bool = False, min_y: int = 0, exact: boo
             x, y = vision_result["x"], vision_result["y"]
             print(f"[Vision] Found '{target}' at ({x},{y})", flush=True)
             click_cmd = f"dc:{x},{y}" if double else f"c:{x},{y}"
-            subprocess.run([CLICLICK, click_cmd], capture_output=True)
+            try:
+                _cliclick(click_cmd)
+            except FileNotFoundError as e:
+                return str(e)
             action_name = "Double-clicked" if double else "Clicked"
             return f"{action_name} '{target}' at ({x}, {y})."
 
@@ -264,7 +297,9 @@ def find_and_click(target: str, double: bool = False, min_y: int = 0, exact: boo
         tmp_path = f.name
 
     time.sleep(0.15)
-    subprocess.run(["screencapture", "-x", tmp_path], capture_output=True)
+    result = subprocess.run(["screencapture", "-x", tmp_path], capture_output=True)
+    if result.returncode != 0:
+        return _NO_DISPLAY_MSG
 
     try:
         data = apple_ocr(tmp_path, target, min_y=min_y, exact=exact)
@@ -281,7 +316,10 @@ def find_and_click(target: str, double: bool = False, min_y: int = 0, exact: boo
 
         x, y = data["x"], data["y"]
         click_cmd = f"dc:{x},{y}" if double else f"c:{x},{y}"
-        subprocess.run([CLICLICK, click_cmd], capture_output=True)
+        try:
+            _cliclick(click_cmd)
+        except FileNotFoundError as e:
+            return str(e)
         action_name = "Double-clicked" if double else "Clicked"
         return f"{action_name} '{target}' at ({x}, {y})."
 
@@ -297,25 +335,40 @@ def find_and_click(target: str, double: bool = False, min_y: int = 0, exact: boo
 # ── Simple mouse actions ─────────────────────────────────────────────────────
 
 def click(x: int, y: int) -> str:
-    subprocess.run([CLICLICK, f"c:{x},{y}"], capture_output=True)
+    try:
+        _cliclick(f"c:{x},{y}")
+    except FileNotFoundError as e:
+        return str(e)
     return f"Clicked at ({x},{y})."
 
 
 def double_click(x: int, y: int) -> str:
-    subprocess.run([CLICLICK, f"dc:{x},{y}"], capture_output=True)
+    try:
+        _cliclick(f"dc:{x},{y}")
+    except FileNotFoundError as e:
+        return str(e)
     return f"Double-clicked at ({x},{y})."
 
 
 def right_click(x: int, y: int) -> str:
-    subprocess.run([CLICLICK, f"rc:{x},{y}"], capture_output=True)
+    try:
+        _cliclick(f"rc:{x},{y}")
+    except FileNotFoundError as e:
+        return str(e)
     return f"Right-clicked at ({x},{y})."
 
 
 def move(x: int, y: int) -> str:
-    subprocess.run([CLICLICK, f"m:{x},{y}"], capture_output=True)
+    try:
+        _cliclick(f"m:{x},{y}")
+    except FileNotFoundError as e:
+        return str(e)
     return f"Moved mouse to ({x},{y})."
 
 
 def position() -> str:
-    r = subprocess.run([CLICLICK, "p"], capture_output=True, text=True)
-    return f"Mouse is at {r.stdout.strip()}"
+    try:
+        r = _cliclick("p")
+    except FileNotFoundError as e:
+        return str(e)
+    return f"Mouse is at {r.stdout.decode().strip()}"
