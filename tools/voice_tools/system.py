@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from tools import chrome, clipboard
-from tools.apps import open_app
+from tools.apps import open_app, close_app
 from tools.system import control as system_control
 from tools.terminal import run as run_terminal
 
@@ -16,6 +16,11 @@ def exec_run_terminal(command: str, **_kw) -> str:
 def exec_open_app(app_name: str, **_kw) -> str:
     """Open a macOS application by name."""
     return open_app(app_name)
+
+
+def exec_close_app(app_name: str, **_kw) -> str:
+    """Quit a macOS application by name."""
+    return close_app(app_name)
 
 
 def exec_chrome_control(action: str, value: str = "", **_kw) -> str:

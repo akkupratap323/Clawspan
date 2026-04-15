@@ -95,3 +95,40 @@ def open_app(app_name: str) -> str:
         return f"Opened {resolved}."
 
     return f"Couldn't find {app_name}. Try saying the full app name."
+
+
+def close_app(app_name: str) -> str:
+    """Quit a macOS application by name. Resolves common aliases."""
+    print(f"[Tool] Close app: {app_name}")
+    resolved = _ALIASES.get(app_name.lower(), app_name)
+
+    # Use AppleScript via osascript — most reliable way to quit a named app.
+    # Fallback to pkill -x if osascript is unavailable.
+    try:
+        r = subprocess.run(
+            ["osascript", "-e", f'quit app "{resolved}"'],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=5,
+        )
+        if r.returncode == 0:
+            return f"Closed {resolved}."
+    except FileNotFoundError:
+        pass
+    except Exception:
+        pass
+
+    # Fallback: pkill by app name (matches process display name)
+    try:
+        r = subprocess.run(
+            ["pkill", "-x", resolved],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=5,
+        )
+        if r.returncode == 0:
+            return f"Closed {resolved}."
+    except Exception:
+        pass
+
+    return f"Could not close {app_name} — it may not be running."

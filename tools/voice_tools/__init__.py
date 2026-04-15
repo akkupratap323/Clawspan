@@ -15,6 +15,7 @@ from typing import Any, Callable
 from tools.voice_tools.system import (
     exec_run_terminal,
     exec_open_app,
+    exec_close_app,
     exec_chrome_control,
     exec_system_control,
     exec_clipboard,
@@ -31,6 +32,13 @@ from tools.voice_tools.research import (
     exec_crawl_to_rag,
     exec_meeting_prep,
     exec_agentic_research,
+    exec_hunter_discover,
+    exec_hunter_domain_search,
+    exec_hunter_email_finder,
+    exec_hunter_email_verifier,
+    exec_hunter_company_enrichment,
+    exec_hunter_person_enrichment,
+    exec_hunter_combined_enrichment,
 )
 from tools.voice_tools.desktop import (
     exec_finder_control,
@@ -81,6 +89,14 @@ TOOLS: list[dict[str, Any]] = [
         "function": {
             "name": "open_app",
             "description": "Open a macOS application by name.",
+            "parameters": {"type": "object", "properties": {"app_name": {"type": "string"}}, "required": ["app_name"]},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "close_app",
+            "description": "Quit / close a macOS application by name. Use when boss says 'close X', 'quit X', 'kill X'.",
             "parameters": {"type": "object", "properties": {"app_name": {"type": "string"}}, "required": ["app_name"]},
         },
     },
@@ -349,6 +365,62 @@ TOOLS: list[dict[str, Any]] = [
             "parameters": {"type": "object", "properties": {"file_path": {"type": "string"}}, "required": ["file_path"]},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "hunter_discover",
+            "description": "Find all people listed for a company domain via Hunter.io. Use when boss asks to find emails at a company.",
+            "parameters": {"type": "object", "properties": {"domain": {"type": "string", "description": "Company domain e.g. whatfix.com"}}, "required": ["domain"]},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "hunter_domain_search",
+            "description": "List all known email addresses for a domain via Hunter.io. Best for 'find emails at X company'.",
+            "parameters": {"type": "object", "properties": {"domain": {"type": "string"}, "limit": {"type": "integer", "description": "Max results (default 10)"}}, "required": ["domain"]},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "hunter_email_finder",
+            "description": "Find a specific person's email by first name, last name, and domain via Hunter.io.",
+            "parameters": {"type": "object", "properties": {"domain": {"type": "string"}, "first_name": {"type": "string"}, "last_name": {"type": "string"}}, "required": ["domain", "first_name", "last_name"]},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "hunter_email_verifier",
+            "description": "Verify deliverability and validity of an email address via Hunter.io.",
+            "parameters": {"type": "object", "properties": {"email": {"type": "string"}}, "required": ["email"]},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "hunter_company_enrichment",
+            "description": "Get full company profile (industry, size, tech stack) from domain via Hunter.io.",
+            "parameters": {"type": "object", "properties": {"domain": {"type": "string"}}, "required": ["domain"]},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "hunter_person_enrichment",
+            "description": "Get full person profile (role, seniority, social) from an email address via Hunter.io.",
+            "parameters": {"type": "object", "properties": {"email": {"type": "string"}}, "required": ["email"]},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "hunter_combined_enrichment",
+            "description": "Get person + company enrichment in one Hunter.io call. Use after finding an email.",
+            "parameters": {"type": "object", "properties": {"email": {"type": "string"}}, "required": ["email"]},
+        },
+    },
 ]
 
 
@@ -357,6 +429,7 @@ TOOLS: list[dict[str, Any]] = [
 TOOL_MAP: dict[str, Callable[..., str]] = {
     "run_terminal":       exec_run_terminal,
     "open_app":           exec_open_app,
+    "close_app":          exec_close_app,
     "chrome_control":     exec_chrome_control,
     "system_control":     exec_system_control,
     "music_control":      exec_music_control,
@@ -381,12 +454,19 @@ TOOL_MAP: dict[str, Callable[..., str]] = {
     "repo_insights":      exec_repo_insights,
     "shell_exec":         exec_shell_exec,
     "deploy_monitor":     exec_deploy_monitor,
-    "writer_create":      exec_writer_create,
-    "writer_export":      exec_writer_export,
-    "writer_edit":        exec_writer_edit,
-    "writer_list":        exec_writer_list,
-    "writer_read":        exec_writer_read,
-    "writer_delete":      exec_writer_delete,
+    "writer_create":              exec_writer_create,
+    "writer_export":              exec_writer_export,
+    "writer_edit":                exec_writer_edit,
+    "writer_list":                exec_writer_list,
+    "writer_read":                exec_writer_read,
+    "writer_delete":              exec_writer_delete,
+    "hunter_discover":            exec_hunter_discover,
+    "hunter_domain_search":       exec_hunter_domain_search,
+    "hunter_email_finder":        exec_hunter_email_finder,
+    "hunter_email_verifier":      exec_hunter_email_verifier,
+    "hunter_company_enrichment":  exec_hunter_company_enrichment,
+    "hunter_person_enrichment":   exec_hunter_person_enrichment,
+    "hunter_combined_enrichment": exec_hunter_combined_enrichment,
 }
 
 
