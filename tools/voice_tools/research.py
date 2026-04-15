@@ -1,4 +1,4 @@
-"""Research voice tools: web_search, deep_research, company/market research, Crawl2RAG, meeting prep, agentic."""
+"""Research voice tools: web_search, deep_research, company/market research, Crawl2RAG, meeting prep, agentic, Hunter.io."""
 
 from __future__ import annotations
 
@@ -13,6 +13,15 @@ from tools.research import (
     crawl_to_rag as _crawl_to_rag,
     meeting_prep as _meeting_prep,
     agentic_research as _agentic_research,
+)
+from tools.hunter import (
+    discover as _hunter_discover,
+    domain_search as _hunter_domain_search,
+    email_finder as _hunter_email_finder,
+    email_verifier as _hunter_email_verifier,
+    company_enrichment as _hunter_company_enrichment,
+    person_enrichment as _hunter_person_enrichment,
+    combined_enrichment as _hunter_combined_enrichment,
 )
 
 
@@ -124,3 +133,40 @@ def exec_agentic_research(topic: str, max_iterations: int = 5, **_kw) -> str:
     summary = result.get("executive_summary", "")
     sources = result.get("total_sources", 0)
     return f"{summary}\n\nSources analyzed: {sources}"
+
+
+# ── Hunter.io email intelligence ──────────────────────────────────────────
+
+def exec_hunter_discover(domain: str, **_kw) -> str:
+    """Find all people listed for a company domain via Hunter.io."""
+    return _hunter_discover(domain)
+
+
+def exec_hunter_domain_search(domain: str, limit: int = 10, **_kw) -> str:
+    """List all known email addresses for a domain via Hunter.io."""
+    return _hunter_domain_search(domain, limit=limit)
+
+
+def exec_hunter_email_finder(domain: str, first_name: str, last_name: str, **_kw) -> str:
+    """Find one person's email by name + domain via Hunter.io."""
+    return _hunter_email_finder(domain, first_name, last_name)
+
+
+def exec_hunter_email_verifier(email: str, **_kw) -> str:
+    """Verify deliverability and validity of an email address via Hunter.io."""
+    return _hunter_email_verifier(email)
+
+
+def exec_hunter_company_enrichment(domain: str, **_kw) -> str:
+    """Get full company profile from domain via Hunter.io."""
+    return _hunter_company_enrichment(domain)
+
+
+def exec_hunter_person_enrichment(email: str, **_kw) -> str:
+    """Get full person profile from an email address via Hunter.io."""
+    return _hunter_person_enrichment(email)
+
+
+def exec_hunter_combined_enrichment(email: str, **_kw) -> str:
+    """Get person + company enrichment in one call via Hunter.io."""
+    return _hunter_combined_enrichment(email)
