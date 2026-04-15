@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 # Must set env before imports
-os.environ.setdefault("GITHUB_TOKEN", "ghp_test_token_12345")
+os.environ.setdefault("GITHUB_TOKEN", "test_token_12345")
 
 from tools.github_api import GitHubAPI, parse_repo_url
 
@@ -83,7 +83,7 @@ class TestParseRepoUrl:
 
 class TestGitHubAPI:
     def setup_method(self):
-        self.api = GitHubAPI(token="ghp_test_token")
+        self.api = GitHubAPI(token="test_token")
 
     # ── get_repo ───────────────────────────────────────────────────────
 

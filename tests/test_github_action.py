@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-os.environ.setdefault("GITHUB_TOKEN", "ghp_test_token")
+os.environ.setdefault("GITHUB_TOKEN", "test_token")
 os.environ.setdefault("OPENAI_API_KEY", "test-key")
 os.environ.setdefault("DEEPSEEK_API_KEY", "test-key")
 

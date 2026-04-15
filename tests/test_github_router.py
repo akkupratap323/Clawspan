@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-os.environ.setdefault("GITHUB_TOKEN", "ghp_test_token")
+os.environ.setdefault("GITHUB_TOKEN", "test_token")
 
 from core.github_router import GitHubRouter, _classify_github_intent
 
