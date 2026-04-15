@@ -139,10 +139,18 @@ if [[ "$SKIP_KEYS" == "0" ]]; then
     local hint="${4:-}"
     if [[ "$required" == "required" ]]; then
       echo -e "  ${RED}*${RESET} ${BOLD}${label}${RESET}${hint:+ — $hint}"
+      # Required: keep asking until user provides a value
+      while true; do
+        read -rp "    → " val
+        if [[ -n "$val" ]]; then
+          break
+        fi
+        echo -e "  ${RED}  This key is required. Press Ctrl+C to exit setup.${RESET}"
+      done
     else
       echo -e "  ${YELLOW}○${RESET} ${label} (optional)${hint:+ — $hint}"
+      read -rp "    → " val
     fi
-    read -rp "    → " val
     echo "$var=$val"
   }
 
@@ -182,6 +190,10 @@ if [[ "$SKIP_KEYS" == "0" ]]; then
       "app.tavily.com → API Keys (web research)"
     echo ""
 
+    prompt_key "Hunter.io API Key" "HUNTER_API_KEY" "optional" \
+      "hunter.io → API → API Key (email finder + verification)"
+    echo ""
+
     prompt_key "GitHub Personal Access Token" "GITHUB_TOKEN" "optional" \
       "github.com/settings/tokens → repo + read:user scopes"
     echo ""
@@ -197,7 +209,7 @@ if [[ "$SKIP_KEYS" == "0" ]]; then
     prompt_key "AWS Access Key ID" "AWS_ACCESS_KEY_ID" "optional" \
       "IAM → Users → Security credentials"
     prompt_key "AWS Secret Access Key" "AWS_SECRET_ACCESS_KEY" "optional"
-    echo "AWS_DEFAULT_REGION=ap-south-1"
+    echo "AWS_DEFAULT_REGION="
     echo ""
 
   } > "$ENV_FILE"
