@@ -1,0 +1,86 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "clawspan"
+version = "0.1.0"
+description = "A voice-first, always-on AI assistant that thinks like a co-founder. Built from scratch — no LangChain, no CrewAI."
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.11"
+authors = [
+    {name = "Aditya", email = "akkupratap323@gmail.com"},
+]
+keywords = [
+    "ai-assistant",
+    "voice-assistant",
+    "macos",
+    "llm",
+    "agentic",
+    "automation",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS :: MacOS X",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Home Automation",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "openai>=1.0.0",
+    "anthropic>=0.20.0",
+    "pipecat-ai[deepgram,cartesia,silero]>=0.0.47",
+    "deepgram-sdk>=3.0.0",
+    "cartesia",
+    "chromadb>=0.4.0",
+    "google-auth>=2.0.0",
+    "google-auth-oauthlib>=1.0.0",
+    "google-api-python-client>=2.0.0",
+    "boto3>=1.26.0",
+    "requests>=2.28.0",
+    "websockets>=12.0",
+    "tavily-python>=0.3.0",
+    "python-docx>=1.0.0",
+    "weasyprint>=60.0",
+    "Pillow>=10.0.0",
+    "PyAutoGUI>=0.9.54",
+    "openwakeword>=0.5.0",
+    "sounddevice>=0.4.6",
+    "python-dotenv>=1.0.0",
+    "numpy>=1.24.0",
+    "loguru>=0.7.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.23.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/akkupratap323/clawspan"
+Repository = "https://github.com/akkupratap323/clawspan"
+Issues = "https://github.com/akkupratap323/clawspan/issues"
+Documentation = "https://github.com/akkupratap323/clawspan#readme"
+
+[project.scripts]
+clawspan = "clawspan.main:cli"
+
+[tool.setuptools.packages.find]
+include = ["clawspan*"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
