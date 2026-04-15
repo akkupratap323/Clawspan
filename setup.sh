@@ -281,6 +281,78 @@ case "\${1:-}" in
   keys)
     "\${EDITOR:-nano}" "\$CLAWSPAN_DIR/.env"
     ;;
+  setup-keys)
+    # Interactive wizard — fills in any optional keys that are currently blank.
+    ENV_FILE="\$CLAWSPAN_DIR/.env"
+    if [[ ! -f "\$ENV_FILE" ]]; then
+      echo "  No .env file found. Run:  clawspan setup"
+      exit 1
+    fi
+
+    _get_val() { grep -E "^\${1}=" "\$ENV_FILE" 2>/dev/null | head -1 | cut -d'=' -f2-; }
+    _set_val() {
+      local key="\$1" val="\$2"
+      if grep -qE "^\${key}=" "\$ENV_FILE" 2>/dev/null; then
+        sed -i '' "s|^\${key}=.*|\${key}=\${val}|" "\$ENV_FILE"
+      else
+        echo "\${key}=\${val}" >> "\$ENV_FILE"
+      fi
+    }
+
+    OPT_KEYS=(ANTHROPIC_API_KEY CARTESIA_VOICE_ID TAVILY_API_KEY HUNTER_API_KEY GITHUB_TOKEN GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_DEFAULT_REGION)
+    OPT_LABELS=("Anthropic API Key" "Cartesia Voice ID" "Tavily API Key" "Hunter.io API Key" "GitHub Personal Access Token" "Google Client ID" "Google Client Secret" "AWS Access Key ID" "AWS Secret Access Key" "AWS Default Region")
+    OPT_HINTS=("console.anthropic.com → API Keys" "leave blank to keep default British voice" "app.tavily.com → API Keys  (enables web research)" "hunter.io → API → API Key  (enables email finder)" "github.com/settings/tokens → repo + read:user scopes" "console.cloud.google.com → Credentials  (enables Gmail + Calendar)" "same page as Client ID" "IAM → Users → Security credentials  (enables AWS monitoring)" "same IAM page" "e.g. us-east-1")
+
+    missing=()
+    missing_idx=()
+    for i in "\${!OPT_KEYS[@]}"; do
+      val="\$(_get_val "\${OPT_KEYS[\$i]}")"
+      if [[ -z "\$val" ]]; then
+        missing+=("\${OPT_KEYS[\$i]}")
+        missing_idx+=("\$i")
+      fi
+    done
+
+    if [[ \${#missing[@]} -eq 0 ]]; then
+      echo ""
+      echo -e "  \033[0;32m✓\033[0m  All optional keys are already filled in."
+      echo "      To change a key:  clawspan keys"
+      echo ""
+      exit 0
+    fi
+
+    echo ""
+    echo -e "  \033[1mOptional Key Setup\033[0m"
+    echo -e "  \033[1;33m\${#missing[@]} key(s) are currently empty.\033[0m  Press ENTER to skip any."
+    echo ""
+
+    filled=0
+    for j in "\${!missing[@]}"; do
+      i="\${missing_idx[\$j]}"
+      key="\${OPT_KEYS[\$i]}"
+      label="\${OPT_LABELS[\$i]}"
+      hint="\${OPT_HINTS[\$i]}"
+      echo -e "  \033[1;33m○\033[0m  \${label}"
+      echo -e "     \033[0;36m\${hint}\033[0m"
+      read -rp "     → " newval
+      if [[ -n "\$newval" ]]; then
+        _set_val "\$key" "\$newval"
+        echo -e "  \033[0;32m✓\033[0m  Saved."
+        (( filled++ )) || true
+      else
+        echo "     Skipped."
+      fi
+      echo ""
+    done
+
+    if [[ \$filled -gt 0 ]]; then
+      echo -e "  \033[0;32m✓\033[0m  \${filled} key(s) saved to .env."
+    else
+      echo "  No keys were changed."
+    fi
+    echo "      To edit any key manually:  clawspan keys"
+    echo ""
+    ;;
   update)
     echo "[Clawspan] Pulling latest..."
     cd "\$CLAWSPAN_DIR" && git pull
@@ -295,15 +367,16 @@ case "\${1:-}" in
     echo "  Usage:  clawspan <command>"
     echo ""
     echo "  Commands:"
-    echo "    start     Start in voice mode"
-    echo "    text      Start in text mode (terminal chat)"
-    echo "    hud       Launch the HUD overlay (Electron)"
-    echo "    stop      Stop all running processes"
-    echo "    status    Show which processes are running"
-    echo "    logs      Tail the live log output"
-    echo "    keys      Edit your .env API keys"
-    echo "    update    Pull latest code + update dependencies"
-    echo "    setup     Re-run the full setup wizard"
+    echo "    start       Start in voice mode"
+    echo "    text        Start in text mode (terminal chat)"
+    echo "    hud         Launch the HUD overlay (Electron)"
+    echo "    stop        Stop all running processes"
+    echo "    status      Show which processes are running"
+    echo "    logs        Tail the live log output"
+    echo "    keys        Edit your .env API keys (opens editor)"
+    echo "    setup-keys  Fill in any optional keys you skipped"
+    echo "    update      Pull latest code + update dependencies"
+    echo "    setup       Re-run the full setup wizard"
     echo ""
     ;;
 esac
@@ -332,10 +405,11 @@ echo ""
 echo -e "${GREEN}${BOLD}  ✓ Clawspan is ready.${RESET}"
 echo ""
 echo -e "  ${BOLD}Quick start:${RESET}"
-echo "    clawspan start      — voice mode"
-echo "    clawspan text       — text mode"
-echo "    clawspan hud        — launch HUD"
-echo "    clawspan keys       — edit API keys"
+echo "    clawspan start       — voice mode"
+echo "    clawspan text        — text mode"
+echo "    clawspan hud         — launch HUD"
+echo "    clawspan setup-keys  — add optional API keys you skipped"
+echo "    clawspan keys        — edit .env directly"
 echo ""
 echo -e "  ${YELLOW}Tip:${RESET} First run will prompt you to set your passphrase and complete onboarding."
 echo ""
