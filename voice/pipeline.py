@@ -281,8 +281,15 @@ class ClawspanProcessor(FrameProcessor):
             system_content += mem_ctx
         messages = [{"role": "system", "content": system_content}] + self._history
 
-        # Default: 1-2 sentences (120 tokens). Explain mode: 3-4 sentences (280 tokens).
-        max_tokens = 280 if self._wants_detail(user_text) else 120
+        # Briefing mode (~5 sentences, 400 tokens): startup briefing, morning/afternoon/evening rundowns.
+        # Explain mode (3-4 sentences, 320 tokens): explicit detail requests.
+        # Default (1-2 sentences, 120 tokens): all other turns.
+        if any(kw in user_text for kw in ("spoken sentences", "briefing", "startup briefing", "morning briefing", "evening briefing")):
+            max_tokens = 400
+        elif self._wants_detail(user_text):
+            max_tokens = 320
+        else:
+            max_tokens = 120
 
         try:
             stream = await self._client.chat.completions.create(
@@ -596,6 +603,7 @@ async def run_pipeline() -> None:
             allow_interruptions=True,
             audio_out_sample_rate=24000,
         ),
+        idle_timeout_secs=None,  # Never auto-cancel — boss may go quiet for extended periods
     )
 
     await _start_hud_server()
