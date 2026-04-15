@@ -6,10 +6,8 @@
 !.env.example
 
 # User profile & runtime data (lives in $HOME anyway)
-.jarvis_profile.json
-.jarvis_memory.db
+.clawspan_profile.json
 .mempalace/
-.jarvis_palace/
 
 # ── Python ──────────────────────────────────────────────────────────────
 __pycache__/

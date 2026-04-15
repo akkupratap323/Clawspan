@@ -1,8 +1,13 @@
 # Clawspan — Your Personal AI Chief of Staff, Running on Your Mac
 
-> A voice-first, always-on AI servant that thinks like a co-founder.  
-> Built from scratch — no LangChain, no CrewAI, no agentic framework.  
+> A voice-first, always-on AI servant that thinks like a co-founder.
+> Built from scratch — no LangChain, no CrewAI, no agentic framework.
 > Every part of the brain is hand-written Python. Pipecat handles voice I/O only.
+
+> **⚠️ Platform Notice:** Clawspan is **macOS-only**. It relies on macOS-specific
+> features such as AppleScript, `afplay`, `osascript`, `screencapture`, and
+> PyAutoGUI for desktop automation. Linux and Windows support is not available
+> at this time.
 
 ---
 

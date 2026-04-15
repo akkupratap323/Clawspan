@@ -2,15 +2,16 @@
 Clawspan Utilities
 """
 
-import os
+import subprocess
+import sys
 
 
 def print_banner():
     from datetime import datetime
     now = datetime.now().strftime("%H:%M · %d %b %Y").upper()
     print(f"""
-  J · A · R · V · I · S
-  ─────────────────────────
+  C · L · A · W · S · P · A · N
+  ─────────────────────────────
   SYSTEMS ONLINE  ·  {now}
 """)
 
@@ -24,4 +25,13 @@ def play_sound(sound_type: str):
         "success": "Glass",
     }
     sound = sounds.get(sound_type, "Ping")
-    os.system(f"afplay /System/Library/Sounds/{sound}.aiff 2>/dev/null &")
+    sound_path = f"/System/Library/Sounds/{sound}.aiff"
+    try:
+        subprocess.Popen(
+            ["afplay", sound_path],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except (FileNotFoundError, OSError):
+        # Not on macOS or sound file missing — silently skip
+        pass

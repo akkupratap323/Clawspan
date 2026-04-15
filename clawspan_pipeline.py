@@ -7,7 +7,7 @@ All logic now lives in the ``voice/`` package.  This file exists so that
 
 import asyncio
 
-from voice.pipeline import ClawspanProcessor as JarvisProcessor, run_pipeline  # noqa: F401
+from voice.pipeline import run_pipeline
 
 if __name__ == "__main__":
     asyncio.run(run_pipeline())

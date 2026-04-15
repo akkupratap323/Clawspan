@@ -28,6 +28,11 @@ python-docx>=1.0.0          # DOCX report generation
 weasyprint>=60.0            # PDF export (optional)
 Pillow>=10.0.0              # Image handling
 
+# ── Automation / Vision ───────────────────────────────────────────────────────
+PyAutoGUI>=0.9.54           # Mouse control, screen interaction
+openwakeword>=0.5.0         # Local wake word detection
+sounddevice>=0.4.6          # Microphone audio capture (voice auth gate)
+
 # ── Utilities ─────────────────────────────────────────────────────────────────
 python-dotenv>=1.0.0        # .env loading
 numpy>=1.24.0               # Numeric ops (wake word, audio)
