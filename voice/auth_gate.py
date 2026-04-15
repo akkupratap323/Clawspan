@@ -204,8 +204,10 @@ async def run_voice_auth_gate() -> bool:
 
 async def run_text_auth_gate() -> bool:
     """Run the passphrase gate via typed password input. Returns True to continue."""
+    from getpass import getpass
+
     if is_setup():
-        print("\n[Auth] Enter password:", flush=True)
+        print("\n[Auth] Enter passphrase:", flush=True)
         for attempt in range(3):
             remaining = lockout_remaining()
             if remaining > 0:
@@ -214,7 +216,7 @@ async def run_text_auth_gate() -> bool:
                 await asyncio.sleep(remaining)
                 continue
 
-            pw = input("> ").strip()
+            pw = getpass("> ").strip()
             result = check(pw)
 
             if result == "ok":
@@ -226,35 +228,35 @@ async def run_text_auth_gate() -> bool:
                 return False
             else:
                 attempts_left = 2 - attempt
-                print(f"[Auth] Wrong password. {attempts_left} attempts left.", flush=True)
+                print(f"[Auth] Wrong passphrase. {attempts_left} attempts left.", flush=True)
 
         print("[Auth] All attempts exhausted. Goodbye.", flush=True)
         return False
 
     # First run — set password
     print("\n[Auth] First-time setup.", flush=True)
-    print("[Auth] Enter a password (will not be echoed):", flush=True)
+    print("[Auth] Enter a passphrase (will not be echoed):", flush=True)
     try:
-        pw1 = input("> ").strip()
+        pw1 = getpass("> ").strip()
     except (EOFError, KeyboardInterrupt):
         print("\n[Auth] Cancelled.", flush=True)
         return False
 
     if not pw1:
-        print("[Auth] No password entered. Skipping setup.", flush=True)
+        print("[Auth] No passphrase entered. Skipping setup.", flush=True)
         return True
 
-    print("[Auth] Confirm password:", flush=True)
+    print("[Auth] Confirm passphrase:", flush=True)
     try:
-        pw2 = input("> ").strip()
+        pw2 = getpass("> ").strip()
     except (EOFError, KeyboardInterrupt):
         print("\n[Auth] Cancelled.", flush=True)
         return False
 
     if pw1 == pw2:
         setup_password(pw1)
-        print("[Auth] Password set. Systems online.", flush=True)
+        print("[Auth] Passphrase set. Systems online.", flush=True)
         return True
 
-    print("[Auth] Passwords didn't match. Run again to set a password.", flush=True)
+    print("[Auth] Passphrases didn't match. Run again to set a passphrase.", flush=True)
     return False
