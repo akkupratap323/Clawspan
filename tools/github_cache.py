@@ -100,22 +100,15 @@ class GitHubAccountCache:
         return changed
 
     def _seed_pinned_repos(self) -> None:
-        """On first load, track pinned repos + run initial insight analysis."""
+        """On first load, record pushed_at for pinned repos (change detection only).
+
+        Insights are NOT pre-fetched here — they run only when a push is detected
+        on a subsequent refresh, or when the user explicitly asks for repo_insights.
+        """
         pinned_lower = {p.lower() for p in PINNED_REPOS}
         for repo in self._repos:
             if repo.get("name", "").lower() in pinned_lower:
                 self._pushed_at_seen[repo["full_name"]] = repo.get("pushed_at", "")
-                # Run insights in background — don't block startup
-                try:
-                    import threading
-                    t = threading.Thread(
-                        target=self._run_insights_bg,
-                        args=(repo["full_name"],),
-                        daemon=True,
-                    )
-                    t.start()
-                except Exception as e:
-                    print(f"[GitHubCache] Seed error for {repo['full_name']}: {e}", flush=True)
 
     def _handle_push_change(self, full_name: str) -> None:
         """On push detected — run insights + notify user."""
