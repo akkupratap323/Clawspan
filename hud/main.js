@@ -1,5 +1,13 @@
 const { app, BrowserWindow, screen } = require('electron');
 
+// Give V8's Oilpan heap enough room for the renderer process.
+// Default reservation (~128 MB) is too small when a video is loaded.
+app.commandLine.appendSwitch('js-flags', '--max-old-space-size=512');
+
+// Disable hardware video decoding — the video is purely decorative and
+// hardware decode pipelines consume the most Oilpan memory on macOS.
+app.commandLine.appendSwitch('disable-accelerated-video-decode');
+
 let win;
 
 app.on('ready', () => {

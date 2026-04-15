@@ -315,7 +315,7 @@ body {
   flex-shrink: 0;
 }
 .hist-who.you    { color: rgba(64,196,255,0.55); }
-.hist-who.jarvis { color: rgba(74,222,128,0.55); }
+.hist-who.clawspan { color: rgba(74,222,128,0.55); }
 .hist-text {
   color: var(--on-muted);
   opacity: 0.6;
@@ -358,7 +358,7 @@ body {
 
   <!-- Header -->
   <div class="header card">
-    <div class="logo">JARVIS</div>
+    <div class="logo">CLAWSPAN</div>
     <div class="header-right">
       <div class="status-pill" id="statusPill">
         <div class="dot"></div>
@@ -374,7 +374,7 @@ body {
 
     <!-- Video (dominant) -->
     <div class="video-card card">
-      <video id="hudVideo" autoplay loop muted playsinline>
+      <video id="hudVideo" autoplay loop muted playsinline preload="none">
         <source src="video.mp4" type="video/mp4">
       </video>
       <iframe id="hudIframe" style="display:none;width:100%;height:100%;border:none;" allow="autoplay;encrypted-media;fullscreen" allowfullscreen></iframe>
@@ -409,7 +409,7 @@ body {
   <!-- Footer -->
   <div class="footer">
     <span id="intLabel">0 TURNS</span>
-    <span id="footerRight">JARVIS · NESTER LABS</span>
+    <span id="footerRight">CLAWSPAN · NESTER LABS</span>
   </div>
 
 </div>
@@ -417,7 +417,7 @@ body {
 <script>
 let interactions = 0;
 let toolClearTimer;
-let lastJarvisText = '';
+let lastClawspanText = '';
 
 const ICONS = {
   open_app:'🚀', chrome_control:'🌐', web_search:'🔍', run_terminal:'⚡',
@@ -458,7 +458,7 @@ window.setConnected = function(v) {
 };
 
 // ── Events ──
-window.onJarvisEvent = function(msg) {
+window.onClawspanEvent = function(msg) {
   const { type, data } = msg;
 
   if (type === 'connected') {
@@ -468,7 +468,7 @@ window.onJarvisEvent = function(msg) {
     setStatus('LISTENING', 'listening');
     document.getElementById('waveform').className = 'waveform listening';
     document.getElementById('thinkingRow').classList.remove('active');
-    lastJarvisText = '';
+    lastClawspanText = '';
   }
   else if (type === 'transcript') {
     addHistory('you', data);
@@ -480,7 +480,7 @@ window.onJarvisEvent = function(msg) {
     document.getElementById('waveform').className = 'waveform thinking';
     document.getElementById('thinkingRow').classList.add('active');
     document.getElementById('toolList').innerHTML = '';
-    lastJarvisText = '';
+    lastClawspanText = '';
   }
   else if (type === 'tool_call') {
     document.getElementById('thinkingRow').classList.remove('active');
@@ -495,16 +495,16 @@ window.onJarvisEvent = function(msg) {
     document.getElementById('thinkingRow').classList.remove('active');
     setStatus('SPEAKING', 'speaking');
     document.getElementById('waveform').className = 'waveform speaking';
-    lastJarvisText += data;
+    lastClawspanText += data;
   }
   else if (type === 'speaking') {
-    lastJarvisText = data;
+    lastClawspanText = data;
   }
   else if (type === 'idle') {
     setStatus('STANDBY', '');
     document.getElementById('waveform').className = 'waveform';
     document.getElementById('thinkingRow').classList.remove('active');
-    if (lastJarvisText) addHistory('jarvis', lastJarvisText);
+    if (lastClawspanText) addHistory('clawspan', lastClawspanText);
     clearTimeout(toolClearTimer);
     toolClearTimer = setTimeout(function() {
       document.getElementById('toolList').innerHTML = '';
@@ -517,7 +517,7 @@ function addHistory(who, text) {
   const el = document.createElement('div');
   el.className = 'hist-entry';
   el.innerHTML =
-    '<span class="hist-who ' + who + '">' + (who === 'you' ? 'YOU' : 'J') + '</span>' +
+    '<span class="hist-who ' + who + '">' + (who === 'you' ? 'YOU' : 'C') + '</span>' +
     '<span class="hist-text">' + text.slice(0,52) + (text.length>52?'…':'') + '</span>';
   list.insertBefore(el, list.firstChild);
   while (list.children.length > 6) list.removeChild(list.lastChild);
@@ -528,7 +528,7 @@ window.setConnected(false);
 function connectWS() {
   const ws = new WebSocket('ws://localhost:7788');
   ws.onopen    = function()  { window.setConnected(true); };
-  ws.onmessage = function(e) { try { window.onJarvisEvent(JSON.parse(e.data)); } catch(_){} };
+  ws.onmessage = function(e) { try { window.onClawspanEvent(JSON.parse(e.data)); } catch(_){} };
   ws.onclose   = function()  { window.setConnected(false); setTimeout(connectWS, 2000); };
   ws.onerror   = function()  { setTimeout(connectWS, 2000); };
 }
@@ -572,8 +572,12 @@ window.loadVideo = function(url) {
 
 window.setVideoLabel = function(text) { videoLabel.textContent = text || 'HUD FEED'; };
 
-// Local video loop
+// Local video — lazy load: only start buffering/playing after page is ready.
+// preload="none" prevents the 43 MB file from being loaded into the Oilpan
+// heap at startup (which caused the V8 OOM).
 hudVideo.muted = true;
+hudVideo.preload = 'auto';   // re-enable buffering now that the page is live
+hudVideo.load();
 hudVideo.play().catch(()=>{});
 </script>
 </body>
