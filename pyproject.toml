@@ -68,10 +68,13 @@ Issues = "https://github.com/akkupratap323/clawspan/issues"
 Documentation = "https://github.com/akkupratap323/clawspan#readme"
 
 [project.scripts]
-clawspan = "clawspan.main:cli"
+clawspan = "main:cli"
+
+[tool.setuptools]
+py-modules = ["clawspan_pipeline", "clawspan_tools", "config", "main", "utils"]
 
 [tool.setuptools.packages.find]
-include = ["clawspan*"]
+include = ["agents*", "auth*", "core*", "shared*", "tools*", "voice*"]
 
 [tool.ruff]
 target-version = "py311"
