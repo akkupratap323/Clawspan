@@ -119,22 +119,14 @@ class TestNeedsOnboarding:
             f.write("2026-01-01")
         assert needs_onboarding() is False
 
-    def test_false_if_profile_has_real_name(self, tmp_path):
-        """Profile with name != 'sir' → skip onboarding, write marker."""
+    def test_profile_alone_does_not_skip_onboarding(self, tmp_path):
+        """The explicit marker, rather than profile contents, controls onboarding."""
         fake_profile = str(tmp_path / "profile.json")
         with open(fake_profile, "w") as f:
             json.dump({"name": "Tony"}, f)
-        assert needs_onboarding() is False
-        # Should have written marker
-        marker = str(tmp_path / "mempalace" / ".onboarded")
-        assert os.path.exists(marker)
-
-    def test_true_if_profile_has_default_name(self, tmp_path):
-        """Profile with name='sir' → still needs onboarding."""
-        fake_profile = str(tmp_path / "profile.json")
-        with open(fake_profile, "w") as f:
-            json.dump({"name": "sir"}, f)
         assert needs_onboarding() is True
+        marker = str(tmp_path / "mempalace" / ".onboarded")
+        assert not os.path.exists(marker)
 
 
 # ── _parse_people ───────────────────────────────────────────────────────────
@@ -233,7 +225,7 @@ class TestProcessOnboardingAnswers:
         """Empty answers should give sensible defaults."""
         answers = {}
         profile = process_onboarding_answers(answers)
-        assert profile.name == "sir"
+        assert profile.name == "boss"
         assert profile.communication_style == "casual"
 
     def test_subsequent_onboarding_check_returns_false(self, tmp_path):
