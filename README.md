@@ -368,8 +368,7 @@ clawspan/
 │   ├── research_agent.py
 │   ├── writer_agent.py
 │   ├── calendar_agent.py
-│   ├── coding_agent.py
-│   ├── claude_agent.py
+│   ├── deepcoder_agent.py
 │   ├── deploy_monitor_agent.py
 │   ├── github_monitor_agent.py
 │   └── github_action_agent.py
