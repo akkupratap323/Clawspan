@@ -75,15 +75,15 @@ clawspan/
 │   ├── awareness.py            AwarenessLoop — calendar/email/battery/GitHub/deploys
 │   ├── auth.py                 SHA-256 + salt passphrase + lockout
 │   ├── onboarding.py           First-run profile setup
-│   └── response.py             Response filter (strips raw tool dumps from voice)
+│   ├── response.py             Response filter (strips raw tool dumps from voice)
+│   └── prompts.py              Shared personality + response rules
 │
 ├── agents/                     Domain agents (all extend BaseAgent)
 │   ├── system_agent.py         Mac control (apps, terminal, clipboard, music, vision)
 │   ├── research_agent.py       Deep multi-source research
 │   ├── writer_agent.py         Document creation/editing
 │   ├── calendar_agent.py       Gmail + Calendar + Google Meet
-│   ├── coding_agent.py         General coding tasks (bash, files, search)
-│   ├── deepcoder_agent.py      Advanced coding with Claude delegation
+│   ├── deepcoder_agent.py      DeepSeek coding, research, and Qwen delegation
 │   ├── deploy_monitor_agent.py AWS + deployment monitoring
 │   ├── github_monitor_agent.py Read-only GitHub intelligence
 │   └── github_action_agent.py  Write operations (issues, PRs, git)
