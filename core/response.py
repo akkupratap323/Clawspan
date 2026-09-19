@@ -88,7 +88,6 @@ def _summarize_for_voice(text: str, max_chars: int = 150) -> str:
 
 def _is_duplicate(text: str) -> bool:
     """Check if this response is a duplicate within the dedup window."""
-    global _last_response, _last_response_time
     now = time.time()
     if text.strip().lower() == _last_response.strip().lower():
         if now - _last_response_time < _DEDUP_WINDOW:
