@@ -17,6 +17,7 @@ import wave
 import requests
 
 from config import DEEPGRAM_API_KEY
+from core import auth as _auth
 from core.auth import check, is_setup, lockout_remaining, setup_password
 from utils import play_sound
 
@@ -155,6 +156,10 @@ async def _verify_existing_user() -> bool:
             print(f"[Auth] Access denied. Locked for {remaining}s.", flush=True)
             play_sound("error")
             return False
+        if result == "damaged":
+            print(f"[Auth] Access denied. Fix or delete {_auth.AUTH_PATH} to set a new passphrase.", flush=True)
+            play_sound("error")
+            return False
 
         attempts_left = 2 - attempt
         print(f"[Auth] Wrong passphrase. {attempts_left} attempts left.", flush=True)
@@ -225,6 +230,9 @@ async def run_text_auth_gate() -> bool:
             elif result == "locked":
                 remaining = lockout_remaining()
                 print(f"[Auth] Access denied. Locked for {remaining}s.", flush=True)
+                return False
+            elif result == "damaged":
+                print(f"[Auth] Access denied. Fix or delete {_auth.AUTH_PATH} to set a new passphrase.", flush=True)
                 return False
             else:
                 attempts_left = 2 - attempt
