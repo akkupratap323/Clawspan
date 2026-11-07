@@ -34,7 +34,11 @@ AUTH_PATH = os.path.expanduser("~/.clawspan_auth.json")
 MAX_ATTEMPTS = 3
 LOCKOUT_SECS = 60
 
-CheckResult = Literal["ok", "wrong", "locked", "not_set"]
+CheckResult = Literal["ok", "wrong", "locked", "not_set", "damaged"]
+
+
+class AuthFileError(Exception):
+    """The auth file exists but can't be read, isn't JSON, or has no hash/salt."""
 
 
 def _normalize(phrase: str) -> str:
@@ -65,32 +69,58 @@ def _hash_password(phrase: str, salt: str) -> str:
 
 
 def _load_auth() -> dict | None:
-    if os.path.exists(AUTH_PATH):
-        try:
-            with open(AUTH_PATH) as f:
-                return json.load(f)
-        except Exception:
-            pass
-    return None
+    """Return the stored auth record, or None when no passphrase file exists.
+
+    A file that exists but can't be used raises AuthFileError. It must not be
+    read as "no passphrase set", or startup would skip the check and offer to
+    set a new passphrase.
+    """
+    if not os.path.exists(AUTH_PATH):
+        return None
+    try:
+        with open(AUTH_PATH) as f:
+            data = json.load(f)
+    except (OSError, ValueError) as e:
+        raise AuthFileError(f"{AUTH_PATH}: {e}") from e
+    if not isinstance(data, dict) or not data.get("hash") or not data.get("salt"):
+        raise AuthFileError(f"{AUTH_PATH}: missing hash or salt")
+    return data
 
 
 def _save_auth(data: dict) -> None:
-    with open(AUTH_PATH, "w") as f:
-        json.dump(data, f, indent=2)
+    """Write the auth file atomically, so a crash mid-write keeps the old one."""
+    tmp_path = f"{AUTH_PATH}.tmp"
+    try:
+        with open(tmp_path, "w") as f:
+            json.dump(data, f, indent=2)
+        os.replace(tmp_path, AUTH_PATH)
+    except BaseException:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
 
 def is_setup() -> bool:
-    """Check if a password has been set."""
-    auth = _load_auth()
-    return auth is not None and "hash" in auth and auth.get("hash")
+    """Check if a password has been set.
+
+    A damaged auth file still counts as set, so startup asks for the
+    passphrase (and fails) instead of running first-time setup.
+    """
+    try:
+        return _load_auth() is not None
+    except AuthFileError:
+        return True
 
 
 def check(password: str) -> CheckResult:
-    """Verify a password. Returns 'ok', 'wrong', 'locked', or 'not_set'."""
-    if not is_setup():
-        return "not_set"
-
-    auth = _load_auth()
+    """Verify a password. Returns 'ok', 'wrong', 'locked', 'not_set' or 'damaged'."""
+    try:
+        auth = _load_auth()
+    except AuthFileError as e:
+        print(f"[Auth] Auth file is damaged: {e}", flush=True)
+        return "damaged"
     if auth is None:
         return "not_set"
 
@@ -159,7 +189,10 @@ def change_password(old_password: str, new_password: str) -> bool:
 
 def lockout_remaining() -> int:
     """Return seconds remaining in lockout, or 0 if not locked."""
-    auth = _load_auth()
+    try:
+        auth = _load_auth()
+    except AuthFileError:
+        return 0
     if auth is None:
         return 0
     locked_until = auth.get("locked_until")

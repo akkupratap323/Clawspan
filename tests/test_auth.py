@@ -219,3 +219,65 @@ class TestChangePassword:
         assert change_password("wrong old", "new password") is False
         # Old password still works
         assert check("old password") == "ok"
+
+
+# ── Damaged auth file ────────────────────────────────────────────────────
+
+DAMAGED_CONTENTS = [
+    "",  # truncated to nothing
+    '{"salt": "ab',  # cut off mid-write
+    "[]",
+    '{"salt": "abc"}',
+    '{"hash": "", "salt": "abc"}',
+]
+
+
+class TestDamagedAuthFile:
+    @pytest.mark.parametrize("content", DAMAGED_CONTENTS)
+    def test_counts_as_set(self, _isolated_auth, content):
+        with open(_isolated_auth, "w") as f:
+            f.write(content)
+        assert is_setup() is True
+
+    @pytest.mark.parametrize("content", DAMAGED_CONTENTS)
+    def test_check_reports_damaged_and_leaves_file(self, _isolated_auth, content):
+        with open(_isolated_auth, "w") as f:
+            f.write(content)
+        assert check("anything") == "damaged"
+        with open(_isolated_auth) as f:
+            assert f.read() == content
+
+    def test_lockout_remaining_is_zero(self, _isolated_auth):
+        with open(_isolated_auth, "w") as f:
+            f.write("")
+        assert lockout_remaining() == 0
+
+    def test_change_password_refused(self, _isolated_auth):
+        with open(_isolated_auth, "w") as f:
+            f.write("")
+        assert change_password("anything", "new password") is False
+        with open(_isolated_auth) as f:
+            assert f.read() == ""
+
+
+# ── Atomic save ──────────────────────────────────────────────────────────
+
+
+class TestAtomicSave:
+    def test_crash_mid_write_keeps_old_file(self, _isolated_auth):
+        setup_password("correct")
+        with open(_isolated_auth) as f:
+            before = f.read()
+
+        def _partial_dump(data, f, **kwargs):
+            f.write('{"salt": "')
+            raise OSError("disk full")
+
+        with patch("core.auth.json.dump", side_effect=_partial_dump):
+            with pytest.raises(OSError):
+                check("wrong")
+
+        with open(_isolated_auth) as f:
+            assert f.read() == before
+        assert not os.path.exists(_isolated_auth + ".tmp")
+        assert check("correct") == "ok"
