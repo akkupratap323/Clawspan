@@ -68,6 +68,29 @@ class TestParseRepoUrl:
             "https://github.com/langchain-ai/langchain/issues/123"
         ) == ("langchain-ai", "langchain")
 
+    @pytest.mark.parametrize("value", [
+        "https://github.com/langchain-ai/langchain.git",
+        "https://github.com/langchain-ai/langchain.git/",
+        "github.com/langchain-ai/langchain.git",
+        "langchain-ai/langchain.git",
+        "git@github.com:langchain-ai/langchain.git",
+        "git@github.com:langchain-ai/langchain",
+        "ssh://git@github.com/langchain-ai/langchain.git",
+    ])
+    def test_clone_urls(self, value):
+        """What GitHub's Code button copies, HTTPS and SSH."""
+        assert parse_repo_url(value) == ("langchain-ai", "langchain")
+
+    def test_dot_git_suffix_is_case_insensitive(self):
+        assert parse_repo_url("https://github.com/o/r.GIT") == ("o", "r")
+
+    def test_dot_inside_a_repo_name_is_kept(self):
+        assert parse_repo_url("https://github.com/vercel/next.js.git") == ("vercel", "next.js")
+        assert parse_repo_url("owner/my.github.io") == ("owner", "my.github.io")
+
+    def test_a_repo_named_only_dot_git_is_left_alone(self):
+        assert parse_repo_url("owner/.git") == ("owner", ".git")
+
     def test_invalid_input(self):
         assert parse_repo_url("just-a-random-word") is None
 

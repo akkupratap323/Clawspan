@@ -29,20 +29,27 @@ def parse_repo_url(value: str) -> tuple[str, str] | None:
       - "github.com/langchain-ai/langchain"
       - "https://github.com/langchain-ai/langchain/"
       - "https://github.com/langchain-ai/langchain/issues/123"
+      - clone URLs: "https://github.com/langchain-ai/langchain.git",
+        "git@github.com:langchain-ai/langchain.git"
     """
     value = value.strip().rstrip("/")
 
     # Already shorthand: owner/repo
     if re.match(r'^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.\-]+$', value):
         parts = value.split("/", 1)
-        return parts[0], parts[1].split("/")[0]  # strip anything after repo name
+        return parts[0], _strip_git_suffix(parts[1].split("/")[0])
 
-    # URL form
-    m = re.search(r'github\.com/([a-zA-Z0-9_.-]+)/([a-zA-Z0-9_.\-]+)', value)
+    # URL form (":" is the SSH clone form, git@github.com:owner/repo)
+    m = re.search(r'github\.com[/:]([a-zA-Z0-9_.-]+)/([a-zA-Z0-9_.\-]+)', value)
     if m:
-        return m.group(1), m.group(2)
+        return m.group(1), _strip_git_suffix(m.group(2))
 
     return None
+
+
+def _strip_git_suffix(repo: str) -> str:
+    """'langchain.git' → 'langchain': clone URLs end in .git, the API wants the bare name."""
+    return repo[:-4] if repo.lower().endswith(".git") and len(repo) > 4 else repo
 
 
 class GitHubAPI:
