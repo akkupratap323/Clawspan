@@ -20,6 +20,17 @@ _BASE = "https://api.hunter.io/v2"
 _TIMEOUT = 15
 
 
+def _error(message: str) -> dict:
+    """Error dict with the API key masked.
+
+    The key travels in the GET query string, and a requests connection error
+    quotes the full URL ("Max retries exceeded with url: ...&api_key=...").
+    These messages go back to the agent's LLM and can be spoken aloud.
+    Only called once the key is known to be set.
+    """
+    return {"error": message.replace(HUNTER_API_KEY, "***")}
+
+
 def _get(endpoint: str, params: dict) -> dict:
     """Make a GET request to Hunter.io, return parsed JSON or error dict."""
     if not HUNTER_API_KEY:
@@ -30,9 +41,9 @@ def _get(endpoint: str, params: dict) -> dict:
         r.raise_for_status()
         return r.json()
     except requests.HTTPError as e:
-        return {"error": f"Hunter API error {e.response.status_code}: {e.response.text[:300]}"}
+        return _error(f"Hunter API error {e.response.status_code}: {e.response.text[:300]}")
     except Exception as e:
-        return {"error": str(e)}
+        return _error(str(e))
 
 
 def _post(endpoint: str, payload: dict) -> dict:
@@ -45,9 +56,9 @@ def _post(endpoint: str, payload: dict) -> dict:
         r.raise_for_status()
         return r.json()
     except requests.HTTPError as e:
-        return {"error": f"Hunter API error {e.response.status_code}: {e.response.text[:300]}"}
+        return _error(f"Hunter API error {e.response.status_code}: {e.response.text[:300]}")
     except Exception as e:
-        return {"error": str(e)}
+        return _error(str(e))
 
 
 # ── Public functions ──────────────────────────────────────────────────────────
